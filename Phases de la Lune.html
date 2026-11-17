@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Phases de la Lune</title>
+<style>
+:root{--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba;--accent:#4fb3ff;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba}}
+:root[data-theme="dark"]{--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "Instrument Sans","Segoe UI",system-ui,sans-serif}
+main{max-width:760px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.6rem;margin:0 0 2px;font-weight:600;letter-spacing:-.01em}
+.sub{color:var(--accent);margin:0 0 14px;font-variant-numeric:tabular-nums}
+canvas{display:block;width:100%;aspect-ratio:1;background:radial-gradient(circle at 50% 44%,#0d1830,var(--bg) 75%);border:1px solid var(--line);border-radius:12px}
+.hud{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:12px 0}
+.hud div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+.hud small{display:block;color:var(--muted);font-size:.8rem}
+.hud b{font-weight:600;font-variant-numeric:tabular-nums}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+button{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;cursor:pointer}
+button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h2{font-size:1rem;margin:18px 0 6px;font-weight:600}
+ol{list-style:none;margin:0;padding:0}
+li{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line)}
+li span:last-child{color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
+p.note{color:var(--muted);font-size:.85rem;margin-top:14px}
+</style>
+</head>
+<body>
+<main>
+<h1>Phases de la Lune</h1>
+<p class="sub" id="date"></p>
+<canvas id="c" role="img" aria-label="La Lune telle qu’on la voit, avec sa partie éclairée"></canvas>
+<div class="hud">
+<div><small>Phase</small><b id="h1"></b></div>
+<div><small>Partie éclairée</small><b id="h2"></b></div>
+<div><small>Âge de la Lune</small><b id="h3"></b></div>
+<div><small>Distance à la Terre</small><b id="h4"></b></div>
+</div>
+<div class="bar" id="speeds">
+<button data-s="1" aria-pressed="true">Temps réel</button>
+<button data-s="86400" aria-pressed="false">1 jour/s</button>
+<button data-s="432000" aria-pressed="false">5 jours/s</button>
+<button id="dir">Sens : avenir</button>
+<button id="now">Maintenant</button>
+</div>
+<div class="bar" id="hemi">
+<button data-h="n" aria-pressed="true">Hémisphère nord</button>
+<button data-h="s" aria-pressed="false">Hémisphère sud</button>
+</div>
+<h2>Prochaines phases</h2>
+<ol id="next"></ol>
+<p class="note">Positions calculées avec des formules astronomiques simplifiées (précision d’environ une heure sur les dates des phases). Le relief de la Lune est stylisé. Les heures sont celles de votre appareil.</p>
+</main>
+<script>
+const D=Math.PI/180,SYN=29.530588861,$=id=>document.getElementById(id);
+function astro(ms){
+  const d=ms/864e5+2440587.5-2451545,T=d/36525,g=(357.529+.98560028*d)*D,q=280.459+.98564736*d,ls=q+1.915*Math.sin(g)+.02*Math.sin(2*g);
+  const lm=218.32+481267.881*T+6.29*Math.sin((135+477198.87*T)*D)-1.27*Math.sin((259.3-413335.36*T)*D)+.66*Math.sin((235.7+890534.22*T)*D)+.21*Math.sin((269.9+954397.74*T)*D)-.19*Math.sin((357.5+35999.05*T)*D)-.11*Math.sin((186.5+966404*T)*D);
+  const E=(((lm-ls)%360)+360)%360,Mp=(134.9+477198.85*T)*D,Dd=E*D;
+  return{E,k:(1-Math.cos(Dd))/2,dist:385001-20905*Math.cos(Mp)-3699*Math.cos(2*Dd-Mp)-2956*Math.cos(2*Dd)};
+}
+function nextPhase(ms,a){
+  const w=t=>((astro(t).E-a+540)%360)-180;let t0=ms,w0=w(t0);
+  for(let i=1;i<=130;i++){const t1=ms+i*.25*864e5,w1=w(t1);
+    if(w0<0&&w1>=0&&w1-w0<90){let lo=t0,hi=t1;for(let k=0;k<28;k++){const m=(lo+hi)/2;w(m)<0?lo=m:hi=m}return hi}
+    t0=t1;w0=w1}
+  return null;
+}
+const MARIA=[[-.25,-.35,.26,.2],[.18,-.28,.15,.13],[.36,-.04,.19,.15],[.57,.13,.13,.1],[.72,-.2,.09,.07],[-.58,0,.2,.34],[-.2,.45,.16,.12],[-.5,.4,.1,.09],[.1,.05,.12,.08]];
+const NAMES=[[0,"Nouvelle Lune"],[90,"Premier quartier"],[180,"Pleine Lune"],[270,"Dernier quartier"]];
+function phaseName(E){
+  for(const[a,n] of NAMES)if(Math.abs(((E-a+540)%360)-180)<6)return n;
+  return E<90?"Premier croissant":E<180?"Lune gibbeuse croissante":E<270?"Lune gibbeuse décroissante":"Dernier croissant";
+}
+const cv=$("c"),ctx=cv.getContext("2d");let size=0,south=false,speed=1,dir=1,simMs=Date.now(),last=performance.now(),lastNext=0;
+function resize(){const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;size=r.width;cv.width=r.width*d;cv.height=r.width*d;ctx.setTransform(d,0,0,d,0,0)}
+addEventListener("resize",resize);resize();
+function draw(a){
+  const W=size,cx=W/2,cy=W*.44,R=W*.3;ctx.clearRect(0,0,W,W);
+  const gl=ctx.createRadialGradient(cx,cy,R*.9,cx,cy,R*1.7);gl.addColorStop(0,"rgba(255,248,225,"+(.04+.2*a.k)+")");gl.addColorStop(1,"rgba(255,248,225,0)");ctx.fillStyle=gl;ctx.fillRect(0,0,W,W);
+  ctx.save();ctx.translate(cx,cy);if(south)ctx.scale(-1,-1);
+  ctx.fillStyle="#e9e5d3";ctx.beginPath();ctx.arc(0,0,R,0,7);ctx.fill();
+  ctx.save();ctx.beginPath();ctx.arc(0,0,R,0,7);ctx.clip();
+  for(const[x,y,rx,ry] of MARIA){ctx.fillStyle="rgba(95,100,115,.38)";ctx.beginPath();ctx.ellipse(x*R,y*R,rx*R,ry*R,0,0,7);ctx.fill()}
+  ctx.fillStyle="rgba(255,255,255,.6)";ctx.beginPath();ctx.arc(-.15*R,.72*R,.04*R,0,7);ctx.fill();
+  const c=Math.cos(a.E*D);
+  ctx.save();ctx.scale(a.E<180?1:-1,1);ctx.beginPath();ctx.arc(0,0,R+1,0,7);ctx.moveTo(0,-R);ctx.arc(0,0,R,-Math.PI/2,Math.PI/2,false);
+  for(let i=0;i<=60;i++){const u=Math.PI*(1-i/60);ctx.lineTo(R*c*Math.sin(u),-R*Math.cos(u))}
+  ctx.closePath();ctx.fillStyle="rgba(12,18,34,.93)";ctx.fill("evenodd");ctx.restore();
+  ctx.restore();
+  ctx.strokeStyle="rgba(255,255,255,.1)";ctx.lineWidth=1;ctx.beginPath();ctx.arc(0,0,R,0,7);ctx.stroke();
+  ctx.restore();
+  // schéma vu du dessus
+  const ox=W*.17,oy=W*.84,or=W*.09,er=W*.016;
+  ctx.strokeStyle="rgba(146,160,186,.5)";ctx.lineWidth=1;ctx.beginPath();ctx.arc(ox,oy,or,0,7);ctx.stroke();
+  ctx.fillStyle="#4fb3ff";ctx.beginPath();ctx.arc(ox,oy,er,0,7);ctx.fill();
+  const mx=ox+or*Math.cos(a.E*D),my=oy-or*Math.sin(a.E*D);
+  ctx.fillStyle="#3a4560";ctx.beginPath();ctx.arc(mx,my,er,0,7);ctx.fill();
+  ctx.fillStyle="#e9e5d3";ctx.beginPath();ctx.arc(mx,my,er,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
+  ctx.font="12px system-ui,sans-serif";ctx.fillStyle="#92a0ba";ctx.textAlign="left";ctx.fillText("Soleil →",ox+or+10,oy-or*.6);ctx.fillText("vue du dessus",ox-or,oy+or+18);
+}
+const fd=ms=>new Date(ms).toLocaleString("fr-FR",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+function nextList(){
+  const ev=NAMES.map(([a,n])=>[n,nextPhase(simMs,a)]).filter(e=>e[1]).sort((x,y)=>x[1]-y[1]);
+  $("next").innerHTML=ev.map(e=>`<li><span>${e[0]}</span><span>${fd(e[1])}</span></li>`).join("");
+}
+function frame(now){
+  const dt=Math.min(.1,(now-last)/1e3);last=now;
+  simMs+=dir*dt*1e3*speed;
+  const a=astro(simMs);draw(a);
+  $("date").textContent=new Date(simMs).toLocaleString("fr-FR",{dateStyle:"full",timeStyle:"medium"});
+  $("h1").textContent=phaseName(a.E);
+  $("h2").textContent=Math.round(a.k*100)+" %";
+  $("h3").textContent=(a.E/360*SYN).toFixed(1).replace(".",",")+" jours";
+  $("h4").textContent=Math.round(a.dist).toLocaleString("fr-FR")+" km";
+  if(now-lastNext>(speed>1?300:2000)){lastNext=now;nextList()}
+  requestAnimationFrame(frame);
+}
+function pick(id,attr,fn){$(id).addEventListener("click",e=>{const b=e.target.closest("button["+attr+"]");if(!b)return;document.querySelectorAll("#"+id+" button["+attr+"]").forEach(x=>x.setAttribute("aria-pressed",x===b));fn(b.getAttribute(attr))})}
+pick("speeds","data-s",s=>{speed=+s;lastNext=0});
+pick("hemi","data-h",h=>{south=h==="s"});
+$("dir").onclick=e=>{dir=-dir;e.target.textContent=dir>0?"Sens : avenir":"Sens : passé";lastNext=0};
+$("now").onclick=()=>{simMs=Date.now();speed=1;dir=1;$("dir").textContent="Sens : avenir";document.querySelectorAll("#speeds button[data-s]").forEach(x=>x.setAttribute("aria-pressed",x.dataset.s==="1"));lastNext=0};
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mission vers Mars</title>
+<style>
+:root{--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba;--accent:#4fb3ff;--burn:#ff9b3d;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba}}
+:root[data-theme="dark"]{--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "Instrument Sans","Segoe UI",system-ui,sans-serif}
+main{max-width:760px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.6rem;margin:0 0 2px;font-weight:600;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:0 0 14px}
+canvas{display:block;width:100%;aspect-ratio:1;background:radial-gradient(circle at 50% 50%,#0d1830,var(--bg) 70%);border:1px solid var(--line);border-radius:12px}
+.hud{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:12px 0}
+.hud div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+.hud small{display:block;color:var(--muted);font-size:.8rem}
+.hud b{font-weight:600;font-variant-numeric:tabular-nums}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+button{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;cursor:pointer}
+button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+ol{list-style:none;margin:0;padding:0}
+li{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line);color:var(--muted)}
+li span:last-child{font-variant-numeric:tabular-nums;white-space:nowrap}
+li.done{color:var(--text)}
+li.done span:first-child::before{content:"✓ ";color:var(--accent)}
+p.note{color:var(--muted);font-size:.85rem;margin-top:14px}
+</style>
+</head>
+<body>
+<main>
+<h1>Mission vers Mars</h1>
+<p class="sub" id="sub"></p>
+<canvas id="c" role="img" aria-label="Simulation du trajet d’une sonde de la Terre à l’orbite de Mars"></canvas>
+<div class="hud">
+<div><small>Phase</small><b id="h1"></b></div>
+<div><small>Date</small><b id="h2"></b></div>
+<div><small>Temps de mission</small><b id="h3"></b></div>
+<div><small>Vitesse</small><b id="h4"></b></div>
+<div><small id="l5">Altitude</small><b id="h5"></b></div>
+<div><small>Δv consommé</small><b id="h6"></b></div>
+</div>
+<div class="bar">
+<button id="pause">Pause</button>
+<button data-m="1" aria-pressed="true">×1</button>
+<button data-m="3" aria-pressed="false">×3</button>
+<button data-m="10" aria-pressed="false">×10</button>
+<button id="skip">Étape suivante</button>
+<button id="again">Rejouer</button>
+</div>
+<ol id="ev"></ol>
+<p class="note">Les planètes suivent leurs positions réelles. La fenêtre de tir est calculée pour un transfert de Hohmann (la trajectoire la plus économe). Les petites corrections de trajectoire en croisière sont lissées, et les durées sont accélérées.</p>
+</main>
+<script>
+const D=Math.PI/180,K=0.01720209895,AU=149597870.7,TAU=2*Math.PI;
+const EL={E:[1.00000261,.00000562,.01671123,-.00004392,-.00001531,-.01294668,100.46457166,35999.37244981,102.93768193,.32327364,0,0],
+M:[1.52371034,.00001847,.0933941,.00007882,1.84969142,-.00813131,-4.55343205,19140.30268499,-23.94362959,.44441088,49.55953891,-.29257343]};
+function xy(el,T,E){
+  const [a0,da,e0,de,I0,dI,L0,dL,w0,dw,O0,dO]=el;
+  const a=a0+da*T,e=e0+de*T,I=(I0+dI*T)*D,w=w0+dw*T,O=(O0+dO*T)*D,om=(w-(O0+dO*T))*D;
+  if(E===undefined){let M=(((L0+dL*T-w)%360)+540)%360-180;M*=D;E=M+e*Math.sin(M);for(let i=0;i<8;i++)E=M+e*Math.sin(E)}
+  const xp=a*(Math.cos(E)-e),yp=a*Math.sqrt(1-e*e)*Math.sin(E);
+  const co=Math.cos(om),so=Math.sin(om),cO=Math.cos(O),sO=Math.sin(O),cI=Math.cos(I);
+  return[(co*cO-so*sO*cI)*xp+(-so*cO-co*sO*cI)*yp,(co*sO+so*cO*cI)*xp+(-so*sO+co*cO*cI)*yp];
+}
+const jc=ms=>(ms/864e5+2440587.5-2451545)/36525,pl=(k,ms)=>xy(EL[k],jc(ms)),lon=(k,ms)=>{const[x,y]=pl(k,ms);return Math.atan2(y,x)/D};
+// Fenêtre de tir : Mars devant la Terre d’environ 44°
+let launch=Date.now(),prev=null;
+for(let d=-45;d<1000;d++){const ms=Date.now()+d*864e5,l=(((lon("M",ms)-lon("E",ms))%360)+360)%360;
+  if(prev!==null&&prev>44.3&&l<=44.3&&prev-l<5){launch=ms;break}prev=l}
+const e0=pl("E",launch),r1=Math.hypot(...e0),th1=Math.atan2(e0[1],e0[0]);
+let tof=259,r2=1.52;
+for(let i=0;i<4;i++){r2=Math.hypot(...pl("M",launch+tof*864e5));tof=Math.PI*Math.pow((r1+r2)/2,1.5)/K}
+const sa=(r1+r2)/2,se=(r2-r1)/(r2+r1),mEnd=pl("M",launch+tof*864e5);
+function helio(tau){
+  const M=K*Math.pow(sa,-1.5)*tau;let E=M;for(let i=0;i<30;i++)E=M+se*Math.sin(E);
+  const nu=2*Math.atan2(Math.sqrt(1+se)*Math.sin(E/2),Math.sqrt(1-se)*Math.cos(E/2)),r=sa*(1-se*Math.cos(E));
+  const w=Math.pow(Math.min(tau/tof,1),3),hx=r2*Math.cos(th1+Math.PI),hy=r2*Math.sin(th1+Math.PI);
+  return[r*Math.cos(th1+nu)+w*(mEnd[0]-hx),r*Math.sin(th1+nu)+w*(mEnd[1]-hy),r];
+}
+// Mécanique autour des planètes
+const muE=398600.4,RE=6371,muM=42828.4,RM=3389.5,rpE=RE+300,rpM=RM+300,raM=RM+20000;
+const vsE=29.7847/Math.sqrt(r1),vsM=29.7847/Math.sqrt(r2);
+const vinfD=vsE*(Math.sqrt(2*r2/(r1+r2))-1),vinfA=vsM*(1-Math.sqrt(2*r1/(r1+r2)));
+const aC=(rpM+raM)/2,eC=(raM-rpM)/(raM+rpM);
+const dvTMI=Math.sqrt(vinfD**2+2*muE/rpE)-Math.sqrt(muE/rpE);
+const vcap=Math.sqrt(muM*(2/rpM-1/aC)),dvMOI=Math.sqrt(vinfA**2+2*muM/rpM)-vcap,dvCirc=vcap-Math.sqrt(muM/rpM);
+const Pl=TAU*Math.sqrt(rpE**3/muE),Pc=TAU*Math.sqrt(aC**3/muM),Pm=TAU*Math.sqrt(rpM**3/muM);
+const tB=2*Pl,tEsc=tB+4*86400,tF=tB+tof*86400,tM0=tF-2*86400,tC=tF+3*Pc;
+function hyp(mu,rp,vinf,t){
+  const A=mu/(vinf*vinf),e=1+rp/A,M=Math.sqrt(mu/(A*A*A))*t;let H=Math.asinh(M/e);
+  for(let i=0;i<40;i++)H-=(e*Math.sinh(H)-H-M)/(e*Math.cosh(H)-1);
+  const nu=2*Math.atan(Math.sqrt((e+1)/(e-1))*Math.tanh(H/2)),r=A*(e*Math.cosh(H)-1);
+  return[r*Math.cos(nu),r*Math.sin(nu)];
+}
+const circle=(r,P)=>t=>{const g=TAU*t/P;return[r*Math.cos(g),r*Math.sin(g)]};
+const capture=u=>{const M=(Math.sqrt(muM/aC**3)*u)%TAU;let E=M;for(let i=0;i<60;i++)E=M+eC*Math.sin(E);return[aC*(Math.cos(E)-eC),aC*Math.sqrt(1-eC*eC)*Math.sin(E)]};
+const SE=[{n:"Orbite basse à 300 km",t0:0,t1:tB,f:circle(rpE,Pl)},{n:"Trajectoire d’évasion",t0:tB,t1:Infinity,f:t=>hyp(muE,rpE,vinfD,t-tB)}];
+const lastM=circle(rpM,Pm);
+const SM=[{n:"Approche de Mars",t0:tM0,t1:tF,f:t=>hyp(muM,rpM,vinfA,t-tF)},{n:"Orbite de capture",t0:tF,t1:tC,f:t=>capture(t-tF)},{n:"Orbite finale à 300 km",t0:tC,t1:Infinity,span:Pm,f:t=>lastM(t-tC)}];
+const burns=[tB,tF,tC],bounds=[tB,tEsc,tM0,tF,tC,tC+3*Pm];
+const rate=t=>t<tB?600:t<tEsc?40000:t<tM0?1.2e6:t<tF?40000:t<tC?4000:1500;
+const fmtD=ms=>new Date(ms).toLocaleDateString("fr-FR",{day:"numeric",month:"short",year:"numeric"});
+document.getElementById("sub").textContent="Fenêtre de tir : "+fmtD(launch)+" · arrivée : "+fmtD(launch+(tB+tof*86400)*1e3);
+const EV=[[0,"Lancement, orbite basse à 300 km"],[tB,"Injection vers Mars (Δv "+dvTMI.toFixed(2)+" km/s)"],[tEsc,"Sortie de l’influence terrestre"],[tM0,"Entrée dans l’influence de Mars"],[tF,"Freinage et capture (Δv "+dvMOI.toFixed(2)+" km/s)"],[tC,"Circularisation (Δv "+dvCirc.toFixed(2)+" km/s)"]];
+const evEl=document.getElementById("ev");
+evEl.innerHTML=EV.map(e=>`<li><span>${e[1]}</span><span>${fmtD(launch+e[0]*1e3)}</span></li>`).join("");
+const lis=[...evEl.children];
+// Rendu
+const cv=document.getElementById("c"),ctx=cv.getContext("2d");let size=0;
+function resize(){const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;size=r.width;cv.width=r.width*d;cv.height=r.width*d;ctx.setTransform(d,0,0,d,0,0)}
+addEventListener("resize",resize);resize();
+let t=0,mult=1,paused=false,hold=0,flash=0,vr=1,lastScene=-1,last=performance.now();
+const $=id=>document.getElementById(id);
+function dot(x,y,r,c){ctx.fillStyle=c;ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill()}
+function label(s,x,y,c){ctx.font="13px system-ui,sans-serif";ctx.fillStyle=c||"#e8edf7";ctx.textAlign=x>size*.78?"right":"left";ctx.fillText(s,x+(x>size*.78?-10:10),y+4)}
+function ring(x,y){if(flash>0){ctx.strokeStyle="rgba(255,155,61,"+(flash/.9)+")";ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(x,y,10+(.9-flash)*60,0,7);ctx.stroke()}}
+function drawSun(){
+  const c=size/2,k=(size/2-26)/1.85,P=(x,y)=>[c+x*k,c-y*k],ms=launch+t*1e3,T=jc(ms),tau=Math.max(0,(t-tB)/86400);
+  ctx.lineWidth=1;
+  for(const [key,col] of [["E","rgba(79,179,255,.4)"],["M","rgba(226,112,79,.4)"]]){ctx.beginPath();for(let i=0;i<=120;i++){const[x,y]=xy(EL[key],T,i/120*TAU),[a,b]=P(x,y);i?ctx.lineTo(a,b):ctx.moveTo(a,b)}ctx.strokeStyle=col;ctx.stroke()}
+  ctx.beginPath();for(let i=0;i<=120;i++){const[x,y]=helio(tof*i/120),[a,b]=P(x,y);i?ctx.lineTo(a,b):ctx.moveTo(a,b)}
+  ctx.setLineDash([4,5]);ctx.strokeStyle="rgba(232,237,247,.35)";ctx.stroke();ctx.setLineDash([]);
+  ctx.beginPath();const n=Math.max(2,Math.ceil(120*Math.min(tau,tof)/tof));for(let i=0;i<=n;i++){const[x,y]=helio(Math.min(tau,tof)*i/n),[a,b]=P(x,y);i?ctx.lineTo(a,b):ctx.moveTo(a,b)}
+  ctx.strokeStyle="#ffffff";ctx.lineWidth=2;ctx.stroke();
+  const[ma,mb]=P(mEnd[0],mEnd[1]);ctx.strokeStyle="rgba(226,112,79,.7)";ctx.lineWidth=1;ctx.beginPath();ctx.arc(ma,mb,9,0,7);ctx.stroke();
+  ctx.shadowColor="#ffcf5a";ctx.shadowBlur=18;dot(c,c,6,"#ffcf5a");ctx.shadowBlur=0;
+  const e=pl("E",ms),m=pl("M",ms),s=helio(tau),[ea,eb]=P(e[0],e[1]),[mx,my]=P(m[0],m[1]),[sx,sy]=P(s[0],s[1]);
+  dot(ea,eb,5,"#4fb3ff");label("Terre",ea,eb,"#8fd0ff");dot(mx,my,4.5,"#e2704f");label("Mars",mx,my);
+  dot(sx,sy,3.5,"#fff");ring(sx,sy);
+  const v=29.7847*Math.sqrt(2/s[2]-1/sa);
+  $("h4").textContent=v.toFixed(1)+" km/s (par rapport au Soleil)";
+  $("l5").textContent="Distance Terre · Mars";
+  $("h5").textContent=(Math.hypot(s[0]-e[0],s[1]-e[1])*AU/1e6).toFixed(1)+" · "+(Math.hypot(s[0]-m[0],s[1]-m[1])*AU/1e6).toFixed(1)+" M km";
+  return"Vers Mars";
+}
+function drawBody(scene,dt){
+  const st=scene===0?SE:SM,R=scene===0?RE:RM,cur=st.find(s=>t>=s.t0&&t<s.t1)||st[st.length-1],p=cur.f(t);
+  const isLast=cur===st[st.length-1],min=scene===0?rpE*2.4:(isLast?rpM*2.6:raM*1.3),target=Math.max(Math.hypot(...p)*1.3,min);
+  vr=lastScene===scene?vr+(target-vr)*Math.min(1,dt*6):target;
+  const c=size/2,k=(size/2-14)/vr,P=q=>[c+q[0]*k,c-q[1]*k];
+  const g=ctx.createRadialGradient(c,c,R*k*.2,c,c,R*k);
+  g.addColorStop(0,scene===0?"#3a86d4":"#d27a52");g.addColorStop(1,scene===0?"#1b4f8f":"#8f3d22");
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(c,c,R*k,0,7);ctx.fill();
+  ctx.strokeStyle=scene===0?"rgba(120,190,255,.4)":"rgba(255,170,120,.3)";ctx.lineWidth=2;ctx.beginPath();ctx.arc(c,c,R*k+2,0,7);ctx.stroke();
+  for(const s of st){if(s.t0>=t)continue;
+    const a=s.span?Math.max(s.t0,t-s.span):s.t0,b=Math.min(t,s.t1);
+    ctx.beginPath();for(let i=0;i<=240;i++){const[x,y]=P(s.f(a+(b-a)*i/240));i?ctx.lineTo(x,y):ctx.moveTo(x,y)}
+    ctx.strokeStyle=s===cur?"#ffffff":"rgba(232,237,247,.45)";ctx.lineWidth=s===cur?2:1.2;ctx.stroke()}
+  const[sx,sy]=P(p);dot(sx,sy,4,"#fff");ring(sx,sy);
+  label(scene===0?"Terre":"Mars",c+R*k*.6,c+R*k*.6+18,"rgba(255,255,255,.7)");
+  const q=cur.f(t+1);
+  $("h4").textContent=Math.hypot(q[0]-p[0],q[1]-p[1]).toFixed(2)+" km/s (par rapport à "+(scene===0?"la Terre":"Mars")+")";
+  $("l5").textContent="Altitude";
+  $("h5").textContent=Math.max(0,Math.hypot(...p)-R).toLocaleString("fr-FR",{maximumFractionDigits:0})+" km";
+  return(scene===0?"Autour de la Terre":"Autour de Mars")+" · "+cur.n;
+}
+function frame(now){
+  const dt=Math.min(.1,(now-last)/1e3);last=now;
+  if(!paused){if(hold>0)hold-=dt;else{const ds=dt*rate(t)*mult,b=burns.find(b=>t<b&&t+ds>=b);if(b!==undefined){t=b;hold=.9;flash=.9}else t+=ds}}
+  if(flash>0)flash-=dt;
+  ctx.clearRect(0,0,size,size);
+  const scene=t<tEsc?0:t<tM0?1:2;
+  const name=scene===1?drawSun():drawBody(scene,dt);lastScene=scene;
+  $("h1").textContent=name;
+  $("h2").textContent=new Date(launch+t*1e3).toLocaleString("fr-FR",{dateStyle:"medium",timeStyle:"short"});
+  const d=Math.floor(t/86400),h=Math.floor(t%86400/3600),m=Math.floor(t%3600/60);
+  $("h3").textContent="J+"+d+" j "+h+" h "+m+" min";
+  $("h6").textContent=((t>=tB?dvTMI:0)+(t>=tF?dvMOI:0)+(t>=tC?dvCirc:0)).toFixed(2)+" km/s";
+  EV.forEach((e,i)=>lis[i].classList.toggle("done",t>=e[0]));
+  requestAnimationFrame(frame);
+}
+$("pause").onclick=e=>{paused=!paused;e.target.textContent=paused?"Reprendre":"Pause"};
+document.querySelectorAll("button[data-m]").forEach(b=>b.onclick=()=>{mult=+b.dataset.m;document.querySelectorAll("button[data-m]").forEach(x=>x.setAttribute("aria-pressed",x===b))});
+$("skip").onclick=()=>{const b=bounds.find(b=>b>t+1);if(b!==undefined){t=b;if(burns.includes(b)){flash=.9;hold=.5}}};
+$("again").onclick=()=>{t=0;hold=0;flash=0;lastScene=-1;paused=false;$("pause").textContent="Pause"};
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

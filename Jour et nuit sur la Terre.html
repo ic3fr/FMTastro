@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jour et nuit sur la Terre</title>
+<style>
+:root{--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba;--accent:#4fb3ff;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba}}
+:root[data-theme="dark"]{--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "Instrument Sans","Segoe UI",system-ui,sans-serif}
+main{max-width:760px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.6rem;margin:0 0 2px;font-weight:600;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:0 0 14px}
+canvas{display:block;width:100%;aspect-ratio:1;touch-action:none;cursor:grab;background:radial-gradient(circle at 50% 50%,#0d1830,var(--bg) 75%);border:1px solid var(--line);border-radius:12px}
+.hud{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:12px 0}
+.hud div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+.hud small{display:block;color:var(--muted);font-size:.8rem}
+.hud b{font-weight:600;font-variant-numeric:tabular-nums}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;align-items:center}
+button{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;cursor:pointer}
+button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+label{display:flex;gap:10px;align-items:center;width:100%;color:var(--muted)}
+input[type=range]{flex:1;accent-color:var(--accent)}
+p.note{color:var(--muted);font-size:.85rem;margin-top:14px}
+</style>
+</head>
+<body>
+<main>
+<h1>Jour et nuit sur la Terre</h1>
+<p class="sub">Faites glisser le globe pour le tourner, touchez un point pour connaître son heure solaire.</p>
+<canvas id="c" role="img" aria-label="Globe terrestre montrant la zone éclairée par le Soleil"></canvas>
+<div class="bar" id="speeds">
+<button data-s="1" aria-pressed="true">Temps réel</button>
+<button data-s="3600" aria-pressed="false">1 h/s</button>
+<button data-s="86400" aria-pressed="false">1 jour/s</button>
+<button data-s="2629800" aria-pressed="false">1 mois/s</button>
+<button id="now">Maintenant</button>
+</div>
+<div class="bar"><label>Jour de l’année <input type="range" id="doy" min="1" max="365" value="1" aria-label="Jour de l’année"> <span id="doyv"></span></label></div>
+<div class="bar">
+<button id="sun">Centrer sur le Soleil</button>
+<button id="pole">Voir le pôle nord</button>
+</div>
+<div class="hud">
+<div><small>Date et heure (UTC)</small><b id="h1"></b></div>
+<div><small>Soleil au zénith</small><b id="h2"></b></div>
+<div><small>Saison</small><b id="h3"></b></div>
+<div><small>Point touché</small><b id="h4">—</b></div>
+<div><small>Soleil sur ce point</small><b id="h5">—</b></div>
+<div><small>Durée du jour</small><b id="h6">—</b></div>
+</div>
+<p class="note">Positions du Soleil calculées avec des formules astronomiques simplifiées (précision d’environ 0,1°). Les contours des continents sont volontairement simplifiés. L’heure solaire est celle d’un cadran solaire, qui diffère de l’heure légale.</p>
+</main>
+<script>
+const D=Math.PI/180,$=id=>document.getElementById(id);
+const POLY=[
+[-166,66,-156,71,-141,70,-128,70,-115,68,-100,68,-95,72,-85,69,-82,66,-88,64,-94,60,-93,57,-85,55,-82,52,-79,52,-78,57,-77,62,-73,62,-68,59,-64,60,-62,57,-57,53,-60,50,-66,49,-64,46,-61,45,-66,44,-70,43,-70,41,-74,40,-76,37,-76,35,-81,31,-80,26,-82,27,-83,29,-85,30,-90,30,-94,29,-97,27,-97,22,-95,19,-91,19,-90,21,-87,21,-88,16,-84,15,-83,10,-80,9,-78,8,-80,7,-84,9,-86,12,-92,15,-98,16,-105,20,-108,25,-112,29,-115,31,-117,33,-121,35,-124,40,-124,47,-128,51,-135,58,-142,60,-152,59,-158,57,-165,55,-160,59,-166,62],
+[-55,60,-43,60,-22,70,-20,80,-35,83,-60,82,-70,78,-55,70],
+[-78,8,-72,12,-62,10,-52,5,-50,0,-44,-2,-35,-6,-39,-14,-41,-22,-48,-26,-53,-34,-58,-38,-63,-41,-66,-47,-69,-52,-72,-54,-75,-48,-73,-40,-71,-30,-70,-18,-76,-14,-81,-6,-80,-1,-78,3],
+[-17,21,-13,28,-6,35,10,37,11,33,20,31,32,31,34,28,38,20,43,12,51,12,48,5,40,-3,40,-15,35,-24,32,-29,26,-34,18,-34,15,-27,12,-17,13,-6,9,4,4,6,-8,4,-13,8,-17,14],
+[-9,37,-9,43,-2,43.5,-1,46,-4.5,48.5,2,51,5,53,8,54,8,57,5,59,5,62,12,66,20,70,28,71,34,69,41,67,44,68,54,68,60,69,70,73,80,73,90,76,105,78,113,74,130,71,142,72,160,70,170,70,180,69,180,65,177,62,163,60,160,54,157,51,156,57,142,59,137,54,141,52,140,48,132,43,129,42,129,35,126,34,126,38,121,40,122,37,119,35,122,30,120,25,110,21,107,20,106,10,100,13,100,8,104,1,100,3,98,8,98,16,94,18,92,22,87,21,80,15,77,8,73,17,72,21,67,24,61,25,57,26,56,27,50,30,48,30,50,26,56,24,59,22,52,16,44,12,40,18,35,28,32,31,34,33,36,36,30,36,27,37,26,40,29,41,23,40,24,37,19,40,17,42,13,45,17,41,16,38,12,42,8,44,3,43,0,39,-5,36],
+[-5,50,1,51,2,53,-2,56,-3,58,-6,58,-5,55,-3,54,-5,52],
+[130,31,135,34,140,36,142,40,141,45,139,41,136,36,132,34],
+[95,5,106,-6,102,-4,98,0],[109,2,117,7,119,1,116,-4,110,-3],
+[114,-22,122,-18,130,-12,136,-12,137,-16,142,-11,146,-19,153,-26,151,-34,146,-39,141,-38,135,-35,131,-31,124,-33,115,-34,114,-26],
+[172,-34,178,-38,175,-41,172,-41],[172,-41,174,-42,170,-46,167,-46],[44,-25,47,-25,50,-15,49,-12,44,-17],
+[-180,-90,180,-90,180,-78,160,-70,140,-66,100,-66,70,-68,45,-68,20,-70,0,-70,-20,-72,-45,-78,-60,-75,-65,-68,-62,-64,-70,-72,-100,-74,-140,-76,-180,-78]];
+const mc=document.createElement("canvas");mc.width=720;mc.height=360;const mx=mc.getContext("2d");mx.fillStyle="#fff";
+for(const a of POLY){mx.beginPath();for(let i=0;i<a.length;i+=2){const x=(a[i]+180)*2,y=(90-a[i+1])*2;i?mx.lineTo(x,y):mx.moveTo(x,y)}mx.closePath();mx.fill()}
+const MASK=mx.getImageData(0,0,720,360).data;
+const RES=360,rc=document.createElement("canvas");rc.width=rc.height=RES;const rx=rc.getContext("2d"),img=rx.createImageData(RES,RES),px=img.data;
+function sunAt(ms){
+  const d=ms/864e5+2440587.5-2451545,gm=(357.529+.98560028*d)*D,q=280.459+.98564736*d;
+  const L=(q+1.915*Math.sin(gm)+.02*Math.sin(2*gm))*D,eps=(23.439-3.6e-7*d)*D;
+  const ra=Math.atan2(Math.cos(eps)*Math.sin(L),Math.cos(L)),dec=Math.asin(Math.sin(eps)*Math.sin(L));
+  let lon=((ra/D-(280.46061837+360.98564736629*d))%360+540)%360-180;
+  return{dec,lon,L:((L/D)%360+360)%360};
+}
+const cv=$("c"),ctx=cv.getContext("2d");let size=0;
+function resize(){const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;size=r.width;cv.width=r.width*d;cv.height=r.width*d;ctx.setTransform(d,0,0,d,0,0);dirty=true}
+let simMs=Date.now(),speed=1,view={lat:20,lon:sunAt(simMs).lon},sel=null,dirty=true,lastDraw=0,last=performance.now();
+addEventListener("resize",resize);resize();
+const sm=(a,b,x)=>{x=Math.min(1,Math.max(0,(x-a)/(b-a)));return x*x*(3-2*x)};
+function render(S){
+  const p0=view.lat*D,l0=view.lon*D,sp=Math.sin(p0),cp=Math.cos(p0),ds=Math.sin(S.dec),dc=Math.cos(S.dec),ls=S.lon*D;let i=0;
+  for(let py=0;py<RES;py++){const y=1-2*(py+.5)/RES;for(let pxl=0;pxl<RES;pxl++,i+=4){
+    const x=2*(pxl+.5)/RES-1,r2=x*x+y*y;if(r2>1){px[i+3]=0;continue}
+    const cc=Math.sqrt(1-r2),sl=cc*sp+y*cp,cl=Math.sqrt(1-sl*sl),lon=l0+Math.atan2(x,cp*cc-y*sp);
+    const s=sl*ds+cl*dc*Math.cos(lon-ls),lat=Math.asin(sl)/D,ld=((lon/D)%360+540)%360-180;
+    const land=MASK[4*(Math.min(359,Math.floor((90-lat)*2))*720+Math.min(719,Math.floor((ld+180)*2)))+3]>100;
+    let R=20,G=70,B=130;
+    if(land){const ice=lat<-63||(lat>60&&ld>-75&&ld<-12);if(ice){R=235;G=240;B=246}else{R=78;G=132;B=76}}
+    const f=sm(-.15,.12,s),lit=f*(.5+.5*Math.min(1,Math.max(0,s)*1.6)),k=.07+.93*lit,tw=Math.exp(-(((s+.02)/.08)**2));
+    const edge=1-Math.pow(cc,.35);
+    px[i]=Math.min(255,R*k+70*tw+edge*40*f);px[i+1]=Math.min(255,G*k+30*tw+edge*70*f);px[i+2]=Math.min(255,B*k+10+edge*110*f);px[i+3]=255}}
+  rx.putImageData(img,0,0);
+}
+const P=(lat,lon)=>{const p=lat*D,l=lon*D-view.lon*D,p0=view.lat*D;return[Math.cos(p)*Math.sin(l),Math.cos(p0)*Math.sin(p)-Math.sin(p0)*Math.cos(p)*Math.cos(l),Math.sin(p0)*Math.sin(p)+Math.cos(p0)*Math.cos(p)*Math.cos(l)]};
+function draw(S){
+  render(S);const c=size/2,R=size/2-10;
+  const gl=ctx.createRadialGradient(c,c,R*.98,c,c,R*1.08);gl.addColorStop(0,"rgba(110,180,255,.45)");gl.addColorStop(1,"rgba(110,180,255,0)");
+  ctx.clearRect(0,0,size,size);ctx.fillStyle=gl;ctx.beginPath();ctx.arc(c,c,R*1.08,0,7);ctx.fill();
+  ctx.imageSmoothingEnabled=true;ctx.drawImage(rc,c-R,c-R,2*R,2*R);
+  ctx.lineWidth=1;ctx.setLineDash([3,5]);
+  for(const la of [0,23.44,-23.44,66.56,-66.56]){ctx.strokeStyle=la===0?"rgba(255,255,255,.4)":"rgba(255,255,255,.25)";ctx.beginPath();let pen=false;
+    for(let lo=-180;lo<=180;lo+=3){const[x,y,z]=P(la,lo);if(z>0){const X=c+x*R,Y=c-y*R;pen?ctx.lineTo(X,Y):ctx.moveTo(X,Y);pen=true}else pen=false}ctx.stroke()}
+  ctx.setLineDash([]);
+  const mark=(lat,lon,col,r)=>{const[x,y,z]=P(lat,lon);if(z<=0)return;const X=c+x*R,Y=c-y*R;ctx.shadowColor=col;ctx.shadowBlur=12;ctx.fillStyle=col;ctx.beginPath();ctx.arc(X,Y,r,0,7);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle="#fff";ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(X,Y,r+4,0,7);ctx.stroke()};
+  mark(S.dec/D,S.lon,"#ffd34d",5);if(sel)mark(sel.lat,sel.lon,"#ff5d8f",4);
+}
+const fr=(n,d=1)=>n.toFixed(d).replace(".",","),ll=(la,lo)=>fr(Math.abs(la))+"° "+(la>=0?"N":"S")+" · "+fr(Math.abs(lo))+"° "+(lo>=0?"E":"O");
+const SEAS=["Printemps","Été","Automne","Hiver"],SEAS2=["Automne","Hiver","Printemps","Été"];
+function hud(S){
+  $("h1").textContent=new Date(simMs).toLocaleString("fr-FR",{timeZone:"UTC",dateStyle:"medium",timeStyle:"medium"});
+  $("h2").textContent=ll(S.dec/D,S.lon);
+  const q=Math.floor(S.L/90);$("h3").textContent="Nord : "+SEAS[q].toLowerCase()+" · Sud : "+SEAS2[q].toLowerCase();
+  if(sel){
+    const sl=Math.sin(sel.lat*D),cl=Math.cos(sel.lat*D),el=Math.asin(sl*Math.sin(S.dec)+cl*Math.cos(S.dec)*Math.cos((sel.lon-S.lon)*D))/D;
+    const st=el>0?"jour":el>-6?"crépuscule civil":el>-12?"crépuscule nautique":el>-18?"crépuscule astronomique":"nuit";
+    const th=((12+(sel.lon-S.lon)/15)%24+24)%24,hh=Math.floor(th),mm=Math.floor((th-hh)*60);
+    $("h4").textContent=ll(sel.lat,sel.lon);
+    $("h5").textContent="hauteur "+fr(el)+"° · "+st+" · "+String(hh).padStart(2,"0")+" h "+String(mm).padStart(2,"0")+" solaire";
+    const cH=-Math.tan(sel.lat*D)*Math.tan(S.dec);
+    $("h6").textContent=cH>1?"nuit polaire":cH<-1?"jour polaire (soleil de minuit)":(()=>{const h=2*Math.acos(cH)/D/15;return Math.floor(h)+" h "+String(Math.round((h%1)*60)).padStart(2,"0")})();
+  }
+  const d=new Date(simMs),doy=Math.floor((Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate())-Date.UTC(d.getUTCFullYear(),0,0))/864e5);
+  if(document.activeElement!==$("doy"))$("doy").value=Math.min(365,doy);
+  $("doyv").textContent=d.toLocaleDateString("fr-FR",{timeZone:"UTC",day:"numeric",month:"long"});
+}
+function frame(now){
+  const dt=Math.min(.1,(now-last)/1e3);last=now;
+  if(speed===1)simMs=Math.max(simMs,0)+dt*1e3;else{simMs+=dt*1e3*speed;dirty=true}
+  if(dirty||now-lastDraw>1000){const S=sunAt(simMs);draw(S);hud(S);dirty=false;lastDraw=now}
+  requestAnimationFrame(frame);
+}
+// Interactions
+let drag=null;
+cv.addEventListener("pointerdown",e=>{cv.setPointerCapture(e.pointerId);drag={x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY};cv.style.cursor="grabbing"});
+cv.addEventListener("pointermove",e=>{if(!drag)return;const R=size/2-10,k=60/R;
+  view.lon-=(e.clientX-drag.x)*k;view.lat=Math.max(-85,Math.min(85,view.lat+(e.clientY-drag.y)*k));drag.x=e.clientX;drag.y=e.clientY;dirty=true});
+cv.addEventListener("pointerup",e=>{cv.style.cursor="grab";if(!drag)return;
+  if(Math.hypot(e.clientX-drag.x0,e.clientY-drag.y0)<6){
+    const r=cv.getBoundingClientRect(),R=size/2-10,x=(e.clientX-r.left-size/2)/R,y=-(e.clientY-r.top-size/2)/R,r2=x*x+y*y;
+    if(r2<=1){const cc=Math.sqrt(1-r2),p0=view.lat*D,sl=cc*Math.sin(p0)+y*Math.cos(p0);
+      sel={lat:Math.asin(sl)/D,lon:((view.lon*D+Math.atan2(x,Math.cos(p0)*cc-y*Math.sin(p0)))/D+540)%360-180};dirty=true}}
+  drag=null});
+document.querySelectorAll("#speeds button[data-s]").forEach(b=>b.onclick=()=>{speed=+b.dataset.s;document.querySelectorAll("#speeds button[data-s]").forEach(x=>x.setAttribute("aria-pressed",x===b))});
+$("now").onclick=()=>{simMs=Date.now();speed=1;document.querySelectorAll("#speeds button[data-s]").forEach(x=>x.setAttribute("aria-pressed",x.dataset.s==="1"));dirty=true};
+$("doy").oninput=e=>{const d=new Date(simMs),t=simMs-Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate());simMs=Date.UTC(d.getUTCFullYear(),0,+e.target.value)+t;dirty=true};
+$("sun").onclick=()=>{const S=sunAt(simMs);view={lat:S.dec/D,lon:S.lon};dirty=true};
+$("pole").onclick=()=>{view.lat=85;dirty=true};
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
