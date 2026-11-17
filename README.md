@@ -2,7 +2,7 @@ Club Astro – Ciel de Chemillé
 
 Page web d’aide à l’observation du ciel pour **Chemillé-en-Anjou (Maine-et-Loire, France)**. Elle réunit sur une seule page tout ce qui compte avant une soirée d’observation. Elle fonctionne dans un navigateur, sans installation.
 
-**Page en ligne :** `https://VOTRE-PSEUDO.github.io/club-astro/ciel-chemille.html`
+**Page en ligne :** `https://ic3fr.github.io/club-astro/ciel-chemille.html`
 (remplacez `VOTRE-PSEUDO` par votre nom d’utilisateur GitHub)
 
 ## Ce que contient la page
