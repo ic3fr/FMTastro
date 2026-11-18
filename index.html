@@ -21,9 +21,19 @@ h2{font-size:1.1rem;margin:0 0 2px;font-weight:600}
 p{margin:0;color:var(--muted);font-size:.92rem}
 .note{font-size:.85rem;margin-top:18px}
 </style>
+<style>
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 10px}
+.topbar a{color:var(--accent);text-decoration:none}
+#nuit{background:#e5281c;color:#000;border:1px solid #e5281c;border-radius:8px;padding:6px 12px;font:inherit;font-weight:600;cursor:pointer}
+#nuit:focus-visible{outline:2px solid #fff;outline-offset:2px}
+html[data-night] #nuit{background:#fff;border-color:#fff}
+html[data-night] body{filter:grayscale(1) brightness(.85)}
+html[data-night]::after{content:"";position:fixed;left:0;top:0;right:0;bottom:0;background:#f00;mix-blend-mode:multiply;pointer-events:none;z-index:2147483647}
+</style>
 </head>
 <body>
 <main>
+<div class="topbar"><span></span><button id="nuit" aria-pressed="false">Mode nuit</button></div>
 <h1>Club Astro</h1>
 <p class="lead">Explorer le ciel depuis Chemillé-en-Anjou, de la Lune à la galaxie.</p>
 <a class="card" href="ciel-chemille.html">
@@ -43,7 +53,7 @@ p{margin:0;color:var(--muted);font-size:.92rem}
 <div><h2>Les planètes en temps réel</h2><p>La Terre et les sept autres planètes à leur position d’aujourd’hui.</p></div>
 </a>
 <a class="card" href="jour-nuit.html">
-<div class="t" aria-hidden="true">🌍</div>
+<img src="earth.jpg" alt="" class="m">
 <div><h2>Jour et nuit sur la Terre</h2><p>Un globe avec l’ombre du Soleil, les saisons et l’heure solaire de n’importe quel point.</p></div>
 </a>
 <a class="card" href="mission-mars.html">
@@ -60,5 +70,12 @@ p{margin:0;color:var(--muted);font-size:.92rem}
 </a>
 <p class="note">Les modules météo de « Ciel de Chemillé » ont besoin d’une connexion Internet.</p>
 </main>
+<script>
+(function(){var K="astro-nuit",d=document.documentElement,b=document.getElementById("nuit");if(!b)return;
+try{if(localStorage.getItem(K)==="1")d.setAttribute("data-night","")}catch(e){}
+function set(on,save){on?d.setAttribute("data-night",""):d.removeAttribute("data-night");b.setAttribute("aria-pressed",on);b.textContent=on?"Mode jour":"Mode nuit";if(save)try{localStorage.setItem(K,on?"1":"0")}catch(e){}}
+b.onclick=function(){set(!d.hasAttribute("data-night"),true)};set(d.hasAttribute("data-night"),false);
+})();
+</script>
 </body>
 </html>

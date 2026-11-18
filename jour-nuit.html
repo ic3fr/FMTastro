@@ -27,10 +27,19 @@ label{display:flex;gap:10px;align-items:center;width:100%;color:var(--muted)}
 input[type=range]{flex:1;accent-color:var(--accent)}
 p.note{color:var(--muted);font-size:.85rem;margin-top:14px}
 </style>
+<style>
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 10px}
+.topbar a{color:var(--accent);text-decoration:none}
+#nuit{background:#e5281c;color:#000;border:1px solid #e5281c;border-radius:8px;padding:6px 12px;font:inherit;font-weight:600;cursor:pointer}
+#nuit:focus-visible{outline:2px solid #fff;outline-offset:2px}
+html[data-night] #nuit{background:#fff;border-color:#fff}
+html[data-night] body{filter:grayscale(1) brightness(.85)}
+html[data-night]::after{content:"";position:fixed;left:0;top:0;right:0;bottom:0;background:#f00;mix-blend-mode:multiply;pointer-events:none;z-index:2147483647}
+</style>
 </head>
 <body>
 <main>
-<p style="margin:0 0 10px"><a href="index.html" style="color:var(--accent);text-decoration:none">← Menu</a></p>
+<div class="topbar"><a href="index.html">← Menu</a><button id="nuit" aria-pressed="false">Mode nuit</button></div>
 <h1>Jour et nuit sur la Terre</h1>
 <p class="sub">Faites glisser le globe pour le tourner, touchez un point pour connaître son heure solaire.</p>
 <canvas id="c" role="img" aria-label="Globe terrestre montrant la zone éclairée par le Soleil"></canvas>
@@ -86,15 +95,17 @@ function resize(){const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||
 let simMs=Date.now(),speed=1,view={lat:20,lon:sunAt(simMs).lon},sel=null,dirty=true,lastDraw=0,last=performance.now();
 addEventListener("resize",resize);resize();
 const sm=(a,b,x)=>{x=Math.min(1,Math.max(0,(x-a)/(b-a)));return x*x*(3-2*x)};
+let TEXD=null,TW=0,TH=0;const TI=new Image();TI.onload=()=>{try{const c=document.createElement("canvas");c.width=TW=TI.naturalWidth;c.height=TH=TI.naturalHeight;const x=c.getContext("2d");x.drawImage(TI,0,0);TEXD=x.getImageData(0,0,TW,TH).data;dirty=true}catch(e){TEXD=null}};TI.src="earth.jpg";
 function render(S){
   const p0=view.lat*D,l0=view.lon*D,sp=Math.sin(p0),cp=Math.cos(p0),ds=Math.sin(S.dec),dc=Math.cos(S.dec),ls=S.lon*D;let i=0;
   for(let py=0;py<RES;py++){const y=1-2*(py+.5)/RES;for(let pxl=0;pxl<RES;pxl++,i+=4){
     const x=2*(pxl+.5)/RES-1,r2=x*x+y*y;if(r2>1){px[i+3]=0;continue}
     const cc=Math.sqrt(1-r2),sl=cc*sp+y*cp,cl=Math.sqrt(1-sl*sl),lon=l0+Math.atan2(x,cp*cc-y*sp);
     const s=sl*ds+cl*dc*Math.cos(lon-ls),lat=Math.asin(sl)/D,ld=((lon/D)%360+540)%360-180;
-    const land=MASK[4*(Math.min(359,Math.floor((90-lat)*2))*720+Math.min(719,Math.floor((ld+180)*2)))+3]>100;
     let R=20,G=70,B=130;
-    if(land){const ice=lat<-63||(lat>60&&ld>-75&&ld<-12);if(ice){R=235;G=240;B=246}else{R=78;G=132;B=76}}
+    if(TEXD){const o=4*(Math.min(TH-1,Math.floor((90-lat)/180*TH))*TW+Math.min(TW-1,Math.floor((ld+180)/360*TW)));R=TEXD[o];G=TEXD[o+1];B=TEXD[o+2]}
+    else{const land=MASK[4*(Math.min(359,Math.floor((90-lat)*2))*720+Math.min(719,Math.floor((ld+180)*2)))+3]>100;
+    if(land){const ice=lat<-63||(lat>60&&ld>-75&&ld<-12);if(ice){R=235;G=240;B=246}else{R=78;G=132;B=76}}}
     const f=sm(-.15,.12,s),lit=f*(.5+.5*Math.min(1,Math.max(0,s)*1.6)),k=.07+.93*lit,tw=Math.exp(-(((s+.02)/.08)**2));
     const edge=1-Math.pow(cc,.35);
     px[i]=Math.min(255,R*k+70*tw+edge*40*f);px[i+1]=Math.min(255,G*k+30*tw+edge*70*f);px[i+2]=Math.min(255,B*k+10+edge*110*f);px[i+3]=255}}
@@ -155,6 +166,13 @@ $("doy").oninput=e=>{const d=new Date(simMs),t=simMs-Date.UTC(d.getUTCFullYear()
 $("sun").onclick=()=>{const S=sunAt(simMs);view={lat:S.dec/D,lon:S.lon};dirty=true};
 $("pole").onclick=()=>{view.lat=85;dirty=true};
 requestAnimationFrame(frame);
+</script>
+<script>
+(function(){var K="astro-nuit",d=document.documentElement,b=document.getElementById("nuit");if(!b)return;
+try{if(localStorage.getItem(K)==="1")d.setAttribute("data-night","")}catch(e){}
+function set(on,save){on?d.setAttribute("data-night",""):d.removeAttribute("data-night");b.setAttribute("aria-pressed",on);b.textContent=on?"Mode jour":"Mode nuit";if(save)try{localStorage.setItem(K,on?"1":"0")}catch(e){}}
+b.onclick=function(){set(!d.hasAttribute("data-night"),true)};set(d.hasAttribute("data-night"),false);
+})();
 </script>
 </body>
 </html>

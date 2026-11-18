@@ -6,7 +6,6 @@
 <title>Ciel de Chemillé</title>
 <style>
 :root{--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba;--accent:#4fb3ff;--ok:#6fd18a;--warn:#ffcf5a;--bad:#ff8f6b;color-scheme:dark}
-:root[data-red]{--bg:#0f0000;--panel:#1b0505;--line:#4a1010;--text:#ff6a5a;--muted:#b0382c;--accent:#ff4a3a;--ok:#ff6a5a;--warn:#ff6a5a;--bad:#ff4a3a}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "Instrument Sans","Segoe UI",system-ui,sans-serif;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
 main{max-width:1100px;margin:0 auto;padding:20px 16px 40px}
@@ -31,10 +30,19 @@ th,td{text-align:right;padding:5px 8px;border-bottom:1px solid var(--line);white
 .bars i{flex:1;background:var(--accent);border-radius:2px 2px 0 0;min-height:1px;opacity:.85}
 .lbl{display:flex;justify-content:space-between;color:var(--muted);font-size:.8rem}
 </style>
+<style>
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 10px}
+.topbar a{color:var(--accent);text-decoration:none}
+#nuit{background:#e5281c;color:#000;border:1px solid #e5281c;border-radius:8px;padding:6px 12px;font:inherit;font-weight:600;cursor:pointer}
+#nuit:focus-visible{outline:2px solid #fff;outline-offset:2px}
+html[data-night] #nuit{background:#fff;border-color:#fff}
+html[data-night] body{filter:grayscale(1) brightness(.85)}
+html[data-night]::after{content:"";position:fixed;left:0;top:0;right:0;bottom:0;background:#f00;mix-blend-mode:multiply;pointer-events:none;z-index:2147483647}
+</style>
 </head>
 <body>
 <main>
-<p style="margin:0 0 10px"><a href="index.html" style="color:var(--accent);text-decoration:none">← Menu</a></p>
+<div class="topbar"><a href="index.html">← Menu</a><button id="nuit" aria-pressed="false">Mode nuit</button></div>
 <h1>Ciel de Chemillé</h1>
 <p class="sub">Chemillé-en-Anjou (France) · 47,22° N, 0,73° O · heures de Paris</p>
 <noscript><p class="bad">JavaScript est désactivé : la page ne peut pas s’afficher.</p></noscript>
@@ -42,7 +50,6 @@ th,td{text-align:right;padding:5px 8px;border-bottom:1px solid var(--line);white
 <div class="bar">
 <input type="date" id="dt" aria-label="Date d’observation">
 <button id="today">Aujourd’hui</button>
-<button id="red" aria-pressed="false">Mode rouge</button>
 </div>
 <div class="grid">
 <section class="card wide" id="k-obs">Chargement…</section>
@@ -201,9 +208,15 @@ async function loadWeather(){
 }
 const todayStr=()=>new Date(Date.now()+tz(Date.now())).toISOString().slice(0,10);
 $("dt").value=todayStr();$("dt").onchange=renderAll;$("today").onclick=()=>{$("dt").value=todayStr();renderAll()};
-$("red").onclick=e=>{const on=e.target.getAttribute("aria-pressed")!=="true";e.target.setAttribute("aria-pressed",on);document.documentElement.toggleAttribute("data-red",on)};
 window.onerror=(m)=>{const b=$("err");b.hidden=false;b.textContent="Erreur : "+m};
 renderAll();loadWeather();
+</script>
+<script>
+(function(){var K="astro-nuit",d=document.documentElement,b=document.getElementById("nuit");if(!b)return;
+try{if(localStorage.getItem(K)==="1")d.setAttribute("data-night","")}catch(e){}
+function set(on,save){on?d.setAttribute("data-night",""):d.removeAttribute("data-night");b.setAttribute("aria-pressed",on);b.textContent=on?"Mode jour":"Mode nuit";if(save)try{localStorage.setItem(K,on?"1":"0")}catch(e){}}
+b.onclick=function(){set(!d.hasAttribute("data-night"),true)};set(d.hasAttribute("data-night"),false);
+})();
 </script>
 </body>
 </html>

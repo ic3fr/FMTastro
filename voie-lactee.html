@@ -25,10 +25,19 @@ button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
 button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 p.note{color:var(--muted);font-size:.85rem;margin-top:14px}
 </style>
+<style>
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 10px}
+.topbar a{color:var(--accent);text-decoration:none}
+#nuit{background:#e5281c;color:#000;border:1px solid #e5281c;border-radius:8px;padding:6px 12px;font:inherit;font-weight:600;cursor:pointer}
+#nuit:focus-visible{outline:2px solid #fff;outline-offset:2px}
+html[data-night] #nuit{background:#fff;border-color:#fff}
+html[data-night] body{filter:grayscale(1) brightness(.85)}
+html[data-night]::after{content:"";position:fixed;left:0;top:0;right:0;bottom:0;background:#f00;mix-blend-mode:multiply;pointer-events:none;z-index:2147483647}
+</style>
 </head>
 <body>
 <main>
-<p style="margin:0 0 10px"><a href="index.html" style="color:var(--accent);text-decoration:none">← Menu</a></p>
+<div class="topbar"><a href="index.html">← Menu</a><button id="nuit" aria-pressed="false">Mode nuit</button></div>
 <h1>Notre place dans la Voie lactée</h1>
 <p class="sub" id="tag">Le Soleil est à environ 26 000 années-lumière du centre.</p>
 <canvas id="c" role="img" aria-label="Schéma de la Voie lactée avec la position du système solaire"></canvas>
@@ -111,6 +120,13 @@ const TAGS={0:"Aujourd’hui : le Soleil se trouve entre les bras de Persée et 
 $("jumps").addEventListener("click",e=>{const b=e.target.closest("button[data-j]");if(!b)return;tM=+b.dataset.j;$("tag").textContent=TAGS[b.dataset.j]});
 $("dir").onclick=e=>{dir=-dir;e.target.textContent=dir>0?"Sens : avenir":"Sens : passé"};
 requestAnimationFrame(frame);
+</script>
+<script>
+(function(){var K="astro-nuit",d=document.documentElement,b=document.getElementById("nuit");if(!b)return;
+try{if(localStorage.getItem(K)==="1")d.setAttribute("data-night","")}catch(e){}
+function set(on,save){on?d.setAttribute("data-night",""):d.removeAttribute("data-night");b.setAttribute("aria-pressed",on);b.textContent=on?"Mode jour":"Mode nuit";if(save)try{localStorage.setItem(K,on?"1":"0")}catch(e){}}
+b.onclick=function(){set(!d.hasAttribute("data-night"),true)};set(d.hasAttribute("data-night"),false);
+})();
 </script>
 </body>
 </html>

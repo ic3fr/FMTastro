@@ -30,10 +30,19 @@ li.done{color:var(--text)}
 li.done span:first-child::before{content:"✓ ";color:var(--accent)}
 p.note{color:var(--muted);font-size:.85rem;margin-top:14px}
 </style>
+<style>
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 10px}
+.topbar a{color:var(--accent);text-decoration:none}
+#nuit{background:#e5281c;color:#000;border:1px solid #e5281c;border-radius:8px;padding:6px 12px;font:inherit;font-weight:600;cursor:pointer}
+#nuit:focus-visible{outline:2px solid #fff;outline-offset:2px}
+html[data-night] #nuit{background:#fff;border-color:#fff}
+html[data-night] body{filter:grayscale(1) brightness(.85)}
+html[data-night]::after{content:"";position:fixed;left:0;top:0;right:0;bottom:0;background:#f00;mix-blend-mode:multiply;pointer-events:none;z-index:2147483647}
+</style>
 </head>
 <body>
 <main>
-<p style="margin:0 0 10px"><a href="index.html" style="color:var(--accent);text-decoration:none">← Menu</a></p>
+<div class="topbar"><a href="index.html">← Menu</a><button id="nuit" aria-pressed="false">Mode nuit</button></div>
 <h1>Mission vers Mars</h1>
 <p class="sub" id="sub"></p>
 <canvas id="c" role="img" aria-label="Simulation du trajet d’une sonde de la Terre à l’orbite de Mars"></canvas>
@@ -120,6 +129,7 @@ const $=id=>document.getElementById(id);
 function dot(x,y,r,c){ctx.fillStyle=c;ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill()}
 function label(s,x,y,c){ctx.font="13px system-ui,sans-serif";ctx.fillStyle=c||"#e8edf7";ctx.textAlign=x>size*.78?"right":"left";ctx.fillText(s,x+(x>size*.78?-10:10),y+4)}
 function ring(x,y){if(flash>0){ctx.strokeStyle="rgba(255,155,61,"+(flash/.9)+")";ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(x,y,10+(.9-flash)*60,0,7);ctx.stroke()}}
+let EBMP=null;const TI=new Image();TI.onload=()=>{try{const W=TI.naturalWidth,H=TI.naturalHeight,c0=document.createElement("canvas");c0.width=W;c0.height=H;const x0=c0.getContext("2d");x0.drawImage(TI,0,0);const T=x0.getImageData(0,0,W,H).data,N=420,b=document.createElement("canvas");b.width=b.height=N;const bx=b.getContext("2d"),im=bx.createImageData(N,N),px=im.data,p0=20*Math.PI/180,sp=Math.sin(p0),cp=Math.cos(p0),l0=10*Math.PI/180;let i=0;for(let py=0;py<N;py++){const y=1-2*(py+.5)/N;for(let q=0;q<N;q++,i+=4){const x=2*(q+.5)/N-1,r2=x*x+y*y;if(r2>1){px[i+3]=0;continue}const cc=Math.sqrt(1-r2),sl=cc*sp+y*cp,lat=Math.asin(sl)*180/Math.PI,lon=(l0+Math.atan2(x,cp*cc-y*sp))*180/Math.PI,ld=((lon%360)+540)%360-180,o=4*(Math.min(H-1,Math.floor((90-lat)/180*H))*W+Math.min(W-1,Math.floor((ld+180)/360*W))),f=.45+.55*Math.pow(cc,.6);px[i]=T[o]*f;px[i+1]=T[o+1]*f;px[i+2]=T[o+2]*f;px[i+3]=255}}bx.putImageData(im,0,0);EBMP=b}catch(e){EBMP=null}};TI.src="earth.jpg";
 function drawSun(){
   const c=size/2,k=(size/2-26)/1.85,P=(x,y)=>[c+x*k,c-y*k],ms=launch+t*1e3,T=jc(ms),tau=Math.max(0,(t-tB)/86400);
   ctx.lineWidth=1;
@@ -146,7 +156,7 @@ function drawBody(scene,dt){
   const c=size/2,k=(size/2-14)/vr,P=q=>[c+q[0]*k,c-q[1]*k];
   const g=ctx.createRadialGradient(c,c,R*k*.2,c,c,R*k);
   g.addColorStop(0,scene===0?"#3a86d4":"#d27a52");g.addColorStop(1,scene===0?"#1b4f8f":"#8f3d22");
-  ctx.fillStyle=g;ctx.beginPath();ctx.arc(c,c,R*k,0,7);ctx.fill();
+  if(scene===0&&EBMP)ctx.drawImage(EBMP,c-R*k,c-R*k,2*R*k,2*R*k);else{ctx.fillStyle=g;ctx.beginPath();ctx.arc(c,c,R*k,0,7);ctx.fill()}
   ctx.strokeStyle=scene===0?"rgba(120,190,255,.4)":"rgba(255,170,120,.3)";ctx.lineWidth=2;ctx.beginPath();ctx.arc(c,c,R*k+2,0,7);ctx.stroke();
   for(const s of st){if(s.t0>=t)continue;
     const a=s.span?Math.max(s.t0,t-s.span):s.t0,b=Math.min(t,s.t1);
@@ -180,6 +190,13 @@ document.querySelectorAll("button[data-m]").forEach(b=>b.onclick=()=>{mult=+b.da
 $("skip").onclick=()=>{const b=bounds.find(b=>b>t+1);if(b!==undefined){t=b;if(burns.includes(b)){flash=.9;hold=.5}}};
 $("again").onclick=()=>{t=0;hold=0;flash=0;lastScene=-1;paused=false;$("pause").textContent="Pause"};
 requestAnimationFrame(frame);
+</script>
+<script>
+(function(){var K="astro-nuit",d=document.documentElement,b=document.getElementById("nuit");if(!b)return;
+try{if(localStorage.getItem(K)==="1")d.setAttribute("data-night","")}catch(e){}
+function set(on,save){on?d.setAttribute("data-night",""):d.removeAttribute("data-night");b.setAttribute("aria-pressed",on);b.textContent=on?"Mode jour":"Mode nuit";if(save)try{localStorage.setItem(K,on?"1":"0")}catch(e){}}
+b.onclick=function(){set(!d.hasAttribute("data-night"),true)};set(d.hasAttribute("data-night"),false);
+})();
 </script>
 </body>
 </html>
