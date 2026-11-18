@@ -1,9 +1,12 @@
-# Club Astro
+# Club Astro · FMTastro
 
-Site d’astronomie pour le club, centré sur **Chemillé-en-Anjou (Maine-et-Loire, France)**. Ouvrez `index.html` : c’est le menu qui mène à toutes les pages. Aucune installation n’est nécessaire.
+Site d’astronomie pour le club, centré sur **Chemillé-en-Anjou (Maine-et-Loire, France)**. Le point d’entrée est la page `index.html` : c’est le menu qui mène à toutes les pages. Aucune installation n’est nécessaire.
 
-**Site en ligne :** `https://ic3fr.github.io/
-(remplacez `VOTRE-PSEUDO` par votre nom d’utilisateur GitHub)
+**Page d’accueil (index) :** [https://ic3fr.github.io/FMTastro/](https://ic3fr.github.io/FMTastro/index.html)
+
+Adresse directe de la page : https://ic3fr.github.io/FMTastro/index.html
+
+**Dépôt GitHub :** [github.com/ic3fr/FMTastro](https://github.com/ic3fr/FMTastro)
 
 ## Les pages
 
@@ -24,10 +27,10 @@ Toutes les pages doivent rester **dans le même dossier** : elles se renvoient l
 
 ## Mise en ligne avec GitHub Pages
 
-1. Créer un dépôt public (par exemple `club-astro`).
+1. Créer un dépôt public nommé `FMTastro`.
 2. Y déposer tous les fichiers de ce dossier (« Add file » puis « Upload files »).
 3. Dans **Settings → Pages**, choisir « Deploy from a branch », la branche `main` et le dossier `/ (root)`.
-4. Attendre une à deux minutes : l’adresse du site s’affiche en haut de la page Pages. Comme le menu s’appelle `index.html`, il s’ouvre directement à cette adresse.
+4. Attendre une à deux minutes : l’adresse du site s’affiche en haut de la page Pages. Comme le menu s’appelle `index.html`, il s’ouvre directement à l’adresse https://ic3fr.github.io/FMTastro/.
 
 ## Changer de lieu
 
