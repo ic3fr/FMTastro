@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Club Astro · Explorer le ciel</title>
+<style>
+:root{--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba;--accent:#4fb3ff;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 "Instrument Sans","Segoe UI",system-ui,sans-serif;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+main{max-width:680px;margin:0 auto;padding:28px 16px 48px}
+h1{font-size:1.8rem;margin:0 0 4px;font-weight:600;letter-spacing:-.01em}
+.lead{color:var(--muted);margin:0 0 22px}
+a.card{display:flex;gap:16px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;color:inherit;text-decoration:none}
+a.card:hover{border-color:var(--accent)}
+a.card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+svg,.t,.m{flex:none;width:84px;height:84px;border-radius:8px;background:#0b1426}
+.t{display:flex;align-items:center;justify-content:center;font-size:2.6rem}
+.m{border-radius:50%;object-fit:cover;background:none}
+h2{font-size:1.1rem;margin:0 0 2px;font-weight:600}
+p{margin:0;color:var(--muted);font-size:.92rem}
+.note{font-size:.85rem;margin-top:18px}
+</style>
+</head>
+<body>
+<main>
+<h1>Club Astro</h1>
+<p class="lead">Explorer le ciel depuis Chemillé-en-Anjou, de la Lune à la galaxie.</p>
+<a class="card" href="ciel-chemille.html">
+<div class="t" aria-hidden="true">🔭</div>
+<div><h2>Ciel de Chemillé</h2><p>Soleil, Lune, météo, point de rosée, planètes et créneaux d’observation pour ce soir.</p></div>
+</a>
+<a class="card" href="phases-lune-chemille.html">
+<img src="moon.jpg" alt="" class="m">
+<div><h2>Pleine Lune · Chemillé</h2><p>Heure exacte de la prochaine pleine Lune, compte à rebours et phases des 14 prochains jours.</p></div>
+</a>
+<a class="card" href="phases-lune.html">
+<img src="moon.jpg" alt="" class="m">
+<div><h2>Phases de la Lune</h2><p>La Lune dans le temps : accélérez le cycle, remontez le temps, hémisphère nord ou sud.</p></div>
+</a>
+<a class="card" href="systeme-solaire.html">
+<svg viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="8" fill="#ffcf5a"/><circle cx="42" cy="42" r="17" fill="none" stroke="#2a3a58"/><circle cx="42" cy="42" r="27" fill="none" stroke="#2a3a58"/><circle cx="42" cy="42" r="37" fill="none" stroke="#2a3a58"/><circle cx="59" cy="42" r="3.5" fill="#4fb3ff"/><circle cx="23" cy="26" r="3" fill="#e2704f"/><circle cx="60" cy="68" r="4" fill="#d9b48f"/></svg>
+<div><h2>Les planètes en temps réel</h2><p>La Terre et les sept autres planètes à leur position d’aujourd’hui.</p></div>
+</a>
+<a class="card" href="jour-nuit.html">
+<div class="t" aria-hidden="true">🌍</div>
+<div><h2>Jour et nuit sur la Terre</h2><p>Un globe avec l’ombre du Soleil, les saisons et l’heure solaire de n’importe quel point.</p></div>
+</a>
+<a class="card" href="mission-mars.html">
+<svg viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="6" fill="#ffcf5a"/><circle cx="42" cy="42" r="18" fill="none" stroke="#2a3a58"/><circle cx="42" cy="42" r="30" fill="none" stroke="#2a3a58"/><path d="M60 42 A 24 24 0 0 0 18 42" fill="none" stroke="#e8edf7" stroke-dasharray="3 3"/><circle cx="60" cy="42" r="3.5" fill="#4fb3ff"/><circle cx="12" cy="42" r="3.5" fill="#e2704f"/></svg>
+<div><h2>Voyage vers Mars</h2><p>Du lancement à la mise en orbite autour de Mars, sur la prochaine fenêtre de tir.</p></div>
+</a>
+<a class="card" href="voie-lactee.html">
+<svg viewBox="0 0 84 84" aria-hidden="true"><ellipse cx="42" cy="42" rx="12" ry="5" fill="#ffd796" transform="rotate(-30 42 42)"/><path d="M42 42 C 52 30, 70 34, 72 46 S 60 72, 40 68" fill="none" stroke="#8cafff" stroke-width="3" opacity=".8"/><path d="M42 42 C 32 54, 14 50, 12 38 S 24 12, 44 16" fill="none" stroke="#8cafff" stroke-width="3" opacity=".8"/><circle cx="42" cy="71" r="3.5" fill="#fff"/><circle cx="42" cy="71" r="6.5" fill="none" stroke="#4fb3ff"/></svg>
+<div><h2>Notre place dans la Voie lactée</h2><p>Le système solaire dans la galaxie, de dessus et de profil, sur 4,6 milliards d’années.</p></div>
+</a>
+<a class="card" href="echelle-univers.html">
+<div class="t" aria-hidden="true">🔬</div>
+<div><h2>Échelle de l’univers</h2><p>Un zoom de la longueur de Planck à l’univers observable.</p></div>
+</a>
+<p class="note">Les modules météo de « Ciel de Chemillé » ont besoin d’une connexion Internet.</p>
+</main>
+</body>
+</html>

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ciel de Chemillé</title>
+<style>
+:root{--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba;--accent:#4fb3ff;--ok:#6fd18a;--warn:#ffcf5a;--bad:#ff8f6b;color-scheme:dark}
+:root[data-red]{--bg:#0f0000;--panel:#1b0505;--line:#4a1010;--text:#ff6a5a;--muted:#b0382c;--accent:#ff4a3a;--ok:#ff6a5a;--warn:#ff6a5a;--bad:#ff4a3a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "Instrument Sans","Segoe UI",system-ui,sans-serif;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+main{max-width:1100px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.7rem;margin:0;font-weight:600;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:2px 0 12px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px;align-items:center}
+button,input{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit}
+button{cursor:pointer}button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(310px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.card.wide{grid-column:1/-1}
+h2{font-size:1.02rem;margin:0 0 8px;font-weight:600}
+.r{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px solid var(--line)}
+.r:last-child{border-bottom:0}.r span{color:var(--muted)}.r b{font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+.big{font-size:2rem;font-weight:600;line-height:1.1}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+small,.note{color:var(--muted);font-size:.85rem}
+.tw{overflow-x:auto}table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;min-width:520px}
+th,td{text-align:right;padding:5px 8px;border-bottom:1px solid var(--line);white-space:nowrap}th:first-child,td:first-child{text-align:left}th{color:var(--muted);font-weight:500;font-size:.85rem}
+.bars{display:flex;align-items:flex-end;gap:3px;height:90px;margin:8px 0 2px}
+.bars i{flex:1;background:var(--accent);border-radius:2px 2px 0 0;min-height:1px;opacity:.85}
+.lbl{display:flex;justify-content:space-between;color:var(--muted);font-size:.8rem}
+</style>
+</head>
+<body>
+<main>
+<p style="margin:0 0 10px"><a href="index.html" style="color:var(--accent);text-decoration:none">← Menu</a></p>
+<h1>Ciel de Chemillé</h1>
+<p class="sub">Chemillé-en-Anjou (France) · 47,22° N, 0,73° O · heures de Paris</p>
+<noscript><p class="bad">JavaScript est désactivé : la page ne peut pas s’afficher.</p></noscript>
+<div id="err" class="card bad" hidden style="margin-bottom:12px"></div>
+<div class="bar">
+<input type="date" id="dt" aria-label="Date d’observation">
+<button id="today">Aujourd’hui</button>
+<button id="red" aria-pressed="false">Mode rouge</button>
+</div>
+<div class="grid">
+<section class="card wide" id="k-obs">Chargement…</section>
+<section class="card" id="k-sun">Chargement…</section>
+<section class="card" id="k-moon">Chargement…</section>
+<section class="card" id="k-meteo">Chargement…</section>
+<section class="card" id="k-dew">Chargement…</section>
+<section class="card" id="k-rad">Chargement…</section>
+<section class="card" id="k-show">Chargement…</section>
+<section class="card wide" id="k-pla">Chargement…</section>
+</div>
+<p class="note" style="margin-top:14px">Calculs astronomiques simplifiés (précision d’environ 1 à 2 minutes pour le Soleil et la Lune, d’environ 0,5° pour les planètes). Météo : Open-Meteo. Activité géomagnétique : NOAA SWPC. Si les modules restent sur « Chargement… », ouvrez le fichier dans Chrome, Firefox ou Safari : les aperçus de fichiers et certains navigateurs bloquent les scripts. L’indice d’observation est une estimation indicative.</p>
+</main>
+<script>
+const LAT=47.2167,LON=-0.7333,TZ="Europe/Paris",D=Math.PI/180,$=id=>document.getElementById(id);
+const S=x=>Math.sin(x*D),Co=x=>Math.cos(x*D),dd=ms=>ms/864e5+2440587.5-2451545;
+const tzf=new Intl.DateTimeFormat("en-US",{timeZone:TZ,hourCycle:"h23",year:"numeric",month:"numeric",day:"numeric",hour:"numeric",minute:"numeric",second:"numeric"});
+const tz=ms=>{const p=tzf.formatToParts(ms).reduce((o,x)=>(o[x.type]=+x.value,o),{});return Date.UTC(p.year,p.month-1,p.day,p.hour%24,p.minute,p.second)-Math.floor(ms/1e3)*1e3};
+const hm=ms=>new Date(ms).toLocaleTimeString("fr-FR",{timeZone:TZ,hour:"2-digit",minute:"2-digit"}).replace(":","h");
+const dur=m=>Math.floor(m/60)+" h "+String(Math.round(m%60)).padStart(2,"0");
+const f1=(x,n=1)=>x.toFixed(n).replace(".",","),row=(a,b)=>`<div class="r"><span>${a}</span><b>${b}</b></div>`;
+const hkey=ms=>new Date(ms+tz(ms)).toISOString().slice(0,13)+":00";
+// Astres
+function sunEq(ms){const d=dd(ms),g=(357.529+.98560028*d)*D,L=(280.459+.98564736*d+1.915*Math.sin(g)+.02*Math.sin(2*g))*D,e=(23.439-3.6e-7*d)*D;return[Math.atan2(Math.cos(e)*Math.sin(L),Math.cos(L)),Math.asin(Math.sin(e)*Math.sin(L)),L]}
+function moonEq(ms){
+  const T=dd(ms)/36525,lam=218.32+481267.881*T+6.29*S(135+477198.87*T)-1.27*S(259.3-413335.36*T)+.66*S(235.7+890534.22*T)+.21*S(269.9+954397.74*T)-.19*S(357.5+35999.05*T)-.11*S(186.5+966404*T);
+  const bet=(5.13*S(93.3+483202.03*T)+.28*S(228.2+960400.87*T)-.28*S(318.3+6003.18*T)-.17*S(217.6-407332.2*T))*D,e=(23.439-.013*T)*D,l=lam*D;
+  const E=((lam-sunEq(ms)[2]/D)%360+360)%360,Mp=134.9+477198.85*T,hp=.9508+.0518*Co(Mp)+.0095*Co(2*E-Mp)+.0078*Co(2*E)+.0028*Co(2*Mp);
+  return{ra:Math.atan2(Math.sin(l)*Math.cos(e)-Math.tan(bet)*Math.sin(e),Math.cos(l)),dec:Math.asin(Math.sin(bet)*Math.cos(e)+Math.cos(bet)*Math.sin(e)*Math.sin(l)),E,dist:6378.14/Math.sin(hp*D)};
+}
+const alt=(ra,dec,ms)=>{const H=(280.46061837+360.98564736629*dd(ms)+LON)*D-ra;return Math.asin(Math.sin(LAT*D)*Math.sin(dec)+Math.cos(LAT*D)*Math.cos(dec)*Math.cos(H))/D};
+const PL=[["Mercure",[.38709927,.00000037,.20563593,.00001906,7.00497902,-.00594749,252.2503235,149472.67411175,77.45779628,.16047689,48.33076593,-.12534081],[-.42,.038,-.000273,.000002]],
+["Vénus",[.72333566,.0000039,.00677672,-.00004107,3.39467605,-.0007889,181.9790995,58517.81538729,131.60246718,.00268329,76.67984255,-.27769418],[-4.4,.0009,.000239,-6.5e-7]],
+["Terre",[1.00000261,.00000562,.01671123,-.00004392,-.00001531,-.01294668,100.46457166,35999.37244981,102.93768193,.32327364,0,0]],
+["Mars",[1.52371034,.00001847,.0933941,.00007882,1.84969142,-.00813131,-4.55343205,19140.30268499,-23.94362959,.44441088,49.55953891,-.29257343],[-1.52,.016,0,0]],
+["Jupiter",[5.202887,-.00011607,.04838624,-.00013253,1.30439695,-.00183714,34.39644051,3034.74612775,14.72847983,.21252668,100.47390909,.20469106],[-9.4,.005,0,0]],
+["Saturne",[9.53667594,-.0012506,.05386179,-.00050991,2.48599187,.00193609,49.95424423,1222.49362201,92.59887831,-.41897216,113.66242448,-.28867794],[-8.88,0,0,0]],
+["Uranus",[19.18916464,-.00196176,.04725744,-.00004397,.77263783,-.00242939,313.23810451,428.48202785,170.9542763,.40805281,74.01692503,.0424058],[-7.19,0,0,0]],
+["Neptune",[30.06992276,.00026291,.00859048,.00005105,1.77004347,.00035372,-55.12002969,218.45945325,44.96476227,-.32241464,131.78422574,-.00508664],[-6.87,0,0,0]]];
+function helio(el,T){
+  const[a0,da,e0,de,I0,dI,L0,dL,w0,dw,O0,dO]=el,a=a0+da*T,e=e0+de*T,I=(I0+dI*T)*D,w=w0+dw*T,O=(O0+dO*T)*D,om=(w-(O0+dO*T))*D;
+  let M=(((L0+dL*T-w)%360)+540)%360-180;M*=D;let E=M+e*Math.sin(M);for(let i=0;i<8;i++)E=M+e*Math.sin(E);
+  const xp=a*(Math.cos(E)-e),yp=a*Math.sqrt(1-e*e)*Math.sin(E),co=Math.cos(om),so=Math.sin(om),cO=Math.cos(O),sO=Math.sin(O),cI=Math.cos(I),sI=Math.sin(I);
+  return[(co*cO-so*sO*cI)*xp+(-so*cO-co*sO*cI)*yp,(co*sO+so*cO*cI)*xp+(-so*sO+co*cO*cI)*yp,so*sI*xp+co*sI*yp];
+}
+function geo(k,ms){
+  const T=dd(ms)/36525,p=helio(PL[k][1],T),e=helio(PL[2][1],T),v=[p[0]-e[0],p[1]-e[1],p[2]-e[2]],De=Math.hypot(...v),r=Math.hypot(...p),R=Math.hypot(...e);
+  const lam=Math.atan2(v[1],v[0])+1.3969713*T*D,bet=Math.asin(v[2]/De),eps=(23.4393-.0130042*T)*D,c=PL[k][2],i=Math.acos((r*r+De*De-R*R)/(2*r*De))/D;
+  return{ra:Math.atan2(Math.sin(lam)*Math.cos(eps)-Math.tan(bet)*Math.sin(eps),Math.cos(lam)),dec:Math.asin(Math.sin(bet)*Math.cos(eps)+Math.cos(bet)*Math.sin(eps)*Math.sin(lam)),
+    mag:c[0]+5*Math.log10(r*De)+c[1]*i+c[2]*i*i+c[3]*i**3,el:Math.acos((R*R+De*De-r*r)/(2*R*De))/D};
+}
+function nextPhase(ms,a){const w=t=>((moonEq(t).E-a+540)%360)-180;let t0=ms,w0=w(t0);
+  for(let i=1;i<=130;i++){const t1=ms+i*.25*864e5,w1=w(t1);if(w0<0&&w1>=0&&w1-w0<90){let lo=t0,hi=t1;for(let k=0;k<26;k++){const m=(lo+hi)/2;w(m)<0?lo=m:hi=m}return hi}t0=t1;w0=w1}return null}
+const MI=new Image();MI.onload=()=>{try{renderAll()}catch(e){}};MI.src="moon.jpg";
+function drawMini(E){const c=$("mcv");if(!c||!c.getContext)return;const x=c.getContext("2d"),R=50,cs=Co(E);x.clearRect(0,0,110,110);x.save();x.translate(55,55);x.fillStyle="#e9e5d3";x.beginPath();x.arc(0,0,R,0,7);x.fill();x.save();x.beginPath();x.arc(0,0,R,0,7);x.clip();if(MI.complete&&MI.naturalWidth)x.drawImage(MI,-R,-R,2*R,2*R);x.save();x.scale(E<180?1:-1,1);x.beginPath();x.arc(0,0,R+1,0,7);x.moveTo(0,-R);x.arc(0,0,R,-Math.PI/2,Math.PI/2,false);for(let i=0;i<=40;i++){const u=Math.PI*(1-i/40);x.lineTo(R*cs*Math.sin(u),-R*Math.cos(u))}x.closePath();x.fillStyle="rgba(12,18,34,.93)";x.fill("evenodd");x.restore();x.restore();x.restore()}
+// Calcul d’une date
+const N=720,ST=18e4;
+const cross=(arr,th,t0)=>{const r=[];for(let i=1;i<arr.length;i++){const a=arr[i-1]-th,b=arr[i]-th;if((a<0)!==(b<0))r.push([t0+(i-1+a/(a-b))*ST,b>a?"up":"down"])}return r};
+const ivs=(t0,fn)=>{const r=[];let s=null;for(let i=0;i<=N;i++){const o=fn(i);if(o&&s===null)s=i;if(!o&&s!==null){r.push([t0+s*ST,t0+i*ST]);s=null}}if(s!==null)r.push([t0+s*ST,t0+N*ST]);return r};
+let W=null,KP=null,cur="";
+function compute(ds){
+  const[y,m,d]=ds.split("-").map(Number),g=Date.UTC(y,m-1,d),t0=g-tz(g-36e5),sunA=[],moonA=[],moonE=[];
+  for(let i=0;i<=N;i++){const t=t0+i*ST,s=sunEq(t),mo=moonEq(t);sunA.push(alt(s[0],s[1],t));moonA.push(alt(mo.ra,mo.dec,t))}
+  return{ds,t0,sunA,moonA,y,m,d};
+}
+function renderAll(){try{renderAll0();$("err").hidden=true}catch(e){const b=$("err");b.hidden=false;b.textContent="Erreur d’affichage : "+e.message}}
+function renderAll0(){
+  const ds=$("dt").value;if(!ds)return;const R=compute(ds),{t0,sunA,moonA}=R,t24=t0+864e5;
+  const sc=cross(sunA,-.833,t0),rise=sc.find(c=>c[1]==="up"&&c[0]<t24),set=sc.find(c=>c[1]==="down"&&c[0]>(rise?rise[0]:t0));
+  const setT=set?set[0]:t0+12*36e5,nx=sc.find(c=>c[1]==="up"&&c[0]>setT),endT=nx?nx[0]:t0+36*36e5,clip=a=>a.map(v=>[Math.max(v[0],setT),Math.min(v[1],endT)]).filter(v=>v[1]>v[0]);
+  let h="<h2>☀ Soleil</h2>";
+  let noon=0;for(let i=0;i<=480;i++)if(sunA[i]>sunA[noon])noon=i;
+  h+=row("Lever",rise?hm(rise[0]):"—")+row("Coucher",set?hm(set[0]):"—")+row("Midi solaire",hm(t0+noon*ST)+" · "+f1(sunA[noon],0)+"°");
+  if(rise&&set)h+=row("Durée du jour",dur((set[0]-rise[0])/6e4));
+  const tw={};for(const[th,n] of [[-6,"civil"],[-12,"nautique"],[-18,"astro"]]){const c=cross(sunA,th,t0),dn=c.find(x=>x[1]==="down"&&set&&x[0]>set[0]-6e4),up=dn&&c.find(x=>x[1]==="up"&&x[0]>dn[0]);tw[n]=[dn&&dn[0],up&&up[0]]}
+  h+=row("Crépuscule civil (fin)",tw.civil[0]?hm(tw.civil[0]):"—")+row("Crépuscule nautique (fin)",tw.nautique[0]?hm(tw.nautique[0]):"—");
+  h+=row("Nuit astronomique",tw.astro[0]?hm(tw.astro[0])+" → "+(tw.astro[1]?hm(tw.astro[1]):"—"):"pas de nuit noire")+row("Aube nautique",tw.nautique[1]?hm(tw.nautique[1]):"—");
+  $("k-sun").innerHTML=h;
+  // Lune
+  const today=hkey(Date.now()).slice(0,10)===ds,tr=today?Date.now():t0+21*36e5,me=moonEq(tr),k=(1-Co(me.E))/2;
+  const mc=cross(moonA,.125,t0).filter(c=>c[0]<t24),mr=mc.filter(c=>c[1]==="up").map(c=>hm(c[0])).join(", ")||"pas de lever",ms=mc.filter(c=>c[1]==="down").map(c=>hm(c[0])).join(", ")||"pas de coucher";
+  const E=me.E,pn=[[0,"Nouvelle Lune"],[90,"Premier quartier"],[180,"Pleine Lune"],[270,"Dernier quartier"]];
+  let nm=E<90?"Premier croissant":E<180?"Gibbeuse croissante":E<270?"Gibbeuse décroissante":"Dernier croissant";
+  for(const[a,n] of pn)if(Math.abs(((E-a+540)%360)-180)<6)nm=n;
+  h="<h2>🌙 Lune</h2><canvas id=\"mcv\" width=\"110\" height=\"110\" style=\"float:right;margin:0 0 6px 10px\" role=\"img\" aria-label=\"Phase actuelle de la Lune\"></canvas>"+row("Lever",mr)+row("Coucher",ms)+row("Phase",nm)+row("Éclairée",Math.round(k*100)+" %")+row("Âge",f1(E/360*29.530589)+" jours")+row("Distance",Math.round(me.dist).toLocaleString("fr-FR")+" km");
+  for(const[a,n] of pn){const t=nextPhase(tr,a);if(t)h+=row(n,new Date(t).toLocaleString("fr-FR",{timeZone:TZ,weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}))}
+  $("k-moon").innerHTML=h;drawMini(E);
+  // Nuit noire
+  const dark=clip(ivs(t0,i=>sunA[i]<-18&&moonA[i]<0)),dtot=dark.reduce((s,v)=>s+(v[1]-v[0])/6e4,0);
+  const astroN=clip(ivs(t0,i=>sunA[i]<-18)).reduce((s,v)=>s+(v[1]-v[0])/6e4,0);
+  // Météo par heure
+  const nightH=[];if(set){for(let t=Math.ceil(set[0]/36e5)*36e5;t<=(sc.find(c=>c[1]==="up"&&c[0]>set[0])||[t24+6*36e5])[0];t+=36e5)nightH.push(t)}
+  const wi=t=>W?W.idx[hkey(t)]:undefined,wv=(key,t)=>{const i=wi(t);return i===undefined?null:W.h[key][i]};
+  const avail=nightH.length&&nightH.every(t=>wi(t)!==undefined);
+  let score=null,why=[];
+  if(avail){const dk=nightH.filter(t=>sunA[Math.round((t-t0)/ST)]<-12),use=dk.length?dk:nightH;
+    const av=key=>use.reduce((s,t)=>s+wv(key,t),0)/use.length,cl=av("cloud_cover"),wd=Math.max(...use.map(t=>wv("wind_speed_10m",t))),gap=Math.min(...use.map(t=>wv("temperature_2m",t)-wv("dew_point_2m",t)));
+    score=100-.85*cl-Math.max(0,wd-20)*.8-(gap<2?15:gap<3.5?6:0)-(k>.5?(k-.5)*30:0);score=Math.max(0,Math.min(100,Math.round(score)));
+    why=[`nuages ${Math.round(cl)} %`,`vent max ${Math.round(wd)} km/h`,`écart T−Td min ${f1(gap)} °C`,`Lune ${Math.round(k*100)} %`]}
+  const lab=score===null?"":score>=75?"Excellent":score>=55?"Bon":score>=35?"Moyen":"Mauvais",cl=score>=55?"ok":score>=35?"warn":"bad";
+  h="<h2>🔭 Observation cette nuit</h2>"+(score===null?`<p class="big">—</p><small>Indice indisponible (météo non chargée ou date hors prévisions).</small>`:`<p class="big ${cl}">${score}/100 · ${lab}</p><small>${why.join(" · ")}</small>`);
+  h+=row("Nuit astronomique",astroN?dur(astroN):"aucune")+row("Nuit noire (sans Soleil ni Lune)",dark.length?dark.map(v=>hm(v[0])+" → "+hm(v[1])).join(" ; ")+" · "+dur(dtot):"aucune");
+  $("k-obs").innerHTML=h;
+  // Météo
+  const off='<p class="note">Météo en direct indisponible dans cette vue (connexion externe bloquée ou absente).</p>';
+  if(!W){$("k-meteo").innerHTML="<h2>☁ Météo</h2>"+off;$("k-dew").innerHTML="<h2>💧 Point de rosée</h2>"+off;$("k-rad").innerHTML="<h2>🔆 Rayonnement solaire</h2>"+off}
+  else{
+    const c=W.cur;let m2="<h2>☁ Météo</h2>";
+    if(c&&today)m2+=row("Maintenant",`${f1(c.temperature_2m)} °C · ${c.cloud_cover} % nuages`)+row("Vent · pression",`${Math.round(c.wind_speed_10m)} km/h · ${Math.round(c.pressure_msl)} hPa`);
+    const dayH=[];if(rise&&set)for(let t=Math.ceil(rise[0]/36e5)*36e5;t<=set[0];t+=36e5)dayH.push(t);
+    if(dayH.length&&dayH.every(t=>wi(t)!==undefined)){const v=key=>dayH.map(t=>wv(key,t));
+      m2+=row("Journée : température",`${f1(Math.min(...v("temperature_2m")),0)} à ${f1(Math.max(...v("temperature_2m")),0)} °C`)+row("Journée : nuages (moy.)",Math.round(v("cloud_cover").reduce((a,b)=>a+b,0)/dayH.length)+" %")+row("Journée : pluie (max)",Math.max(...v("precipitation_probability"))+" %")+row("Journée : vent max",Math.round(Math.max(...v("wind_speed_10m")))+" km/h")}
+    if(avail){m2+='<div class="tw"><table><tr><th>Nuit</th><th>Nuages</th><th>bas/moy/haut</th><th>Temp.</th><th>Hum.</th><th>Vent</th><th>Vis.</th></tr>'+nightH.map(t=>`<tr><td>${hm(t)}</td><td>${wv("cloud_cover",t)} %</td><td>${wv("cloud_cover_low",t)}/${wv("cloud_cover_mid",t)}/${wv("cloud_cover_high",t)}</td><td>${f1(wv("temperature_2m",t))}°</td><td>${wv("relative_humidity_2m",t)} %</td><td>${Math.round(wv("wind_speed_10m",t))}</td><td>${f1(wv("visibility",t)/1e3,0)} km</td></tr>`).join("")+"</table></div>"}
+    else m2+='<p class="note">Prévisions horaires non disponibles pour cette date.</p>';
+    $("k-meteo").innerHTML=m2;
+    // Rosée
+    let d2="<h2>💧 Point de rosée</h2>";
+    if(c&&today)d2+=row("Maintenant",`T ${f1(c.temperature_2m)} °C · Td ${f1(c.dew_point_2m)} °C`)+row("Écart T−Td",f1(c.temperature_2m-c.dew_point_2m)+" °C");
+    if(avail){let mi=nightH[0],mg=1e9;for(const t of nightH){const g2=wv("temperature_2m",t)-wv("dew_point_2m",t);if(g2<mg){mg=g2;mi=t}}
+      const cl2=mg<2?"bad":mg<3.5?"warn":"ok";
+      d2+=row("Point de rosée cette nuit",`${f1(Math.min(...nightH.map(t=>wv("dew_point_2m",t))))} à ${f1(Math.max(...nightH.map(t=>wv("dew_point_2m",t))))} °C`)+row("Écart minimal T−Td",`<span class="${cl2}">${f1(mg)} °C vers ${hm(mi)}</span>`);
+      d2+=`<p class="note">${mg<2?"Risque élevé de buée sur les optiques et de condensation : prévoyez pare-buée ou bande chauffante.":mg<3.5?"Risque modéré de buée sur les optiques.":"Peu de risque de buée."}${wv("temperature_2m",mi)<=1?" Risque de givre.":""}</p>`}
+    $("k-dew").innerHTML=d2;
+    // Rayonnement
+    let r2="<h2>🔆 Rayonnement solaire</h2>";
+    const hrs=[];for(let hh=6;hh<=20;hh++)hrs.push(Date.UTC(R.y,R.m-1,R.d,hh)-tz(Date.UTC(R.y,R.m-1,R.d,hh)-36e5));
+    if(hrs.every(t=>wi(t)!==undefined)){const sw=hrs.map(t=>wv("shortwave_radiation",t)),uv=hrs.map(t=>wv("uv_index",t)),mx=Math.max(...sw,1);
+      r2+=row("Maximum",Math.round(Math.max(...sw))+" W/m²")+row("Indice UV max",f1(Math.max(...uv)))+`<div class="bars" aria-label="Rayonnement solaire par heure">${sw.map(v=>`<i style="height:${Math.round(v/mx*100)}%" title="${Math.round(v)} W/m²"></i>`).join("")}</div><div class="lbl"><span>6 h</span><span>13 h</span><span>20 h</span></div>`}
+    else r2+='<p class="note">Rayonnement non disponible pour cette date.</p>';
+    $("k-rad").innerHTML=r2}
+  if(KP!==null)$("k-rad").innerHTML+=row("Activité géomagnétique (Kp)",`<span class="${KP>=5?"bad":KP>=4?"warn":"ok"}">${String(KP).replace(".",",")} · ${KP>=7?"aurores possibles en France":KP>=5?"tempête géomagnétique":KP>=4?"agité":"calme"}</span>`);
+  // Étoiles filantes
+  const SH=[["Quadrantides",1,4,80],["Lyrides",4,22,18],["η-Aquarides",5,6,50],["Perséides",8,12,100],["Orionides",10,21,20],["Taurides sud",11,5,5],["Léonides",11,17,15],["Géminides",12,14,150],["Ursides",12,22,10]];
+  const ev=[];for(const yy of [R.y,R.y+1])for(const[n,mo,dy,z] of SH){const t=Date.UTC(yy,mo-1,dy,3);if(t>=t0-2*864e5)ev.push([n,t,z])}
+  ev.sort((a,b)=>a[1]-b[1]);
+  $("k-show").innerHTML="<h2>🌠 Pluies d’étoiles filantes</h2>"+ev.slice(0,3).map(([n,t,z])=>{const dl=Math.round((t-t0)/864e5),ki=(1-Co(moonEq(t).E))/2,tx=dl<=0&&dl>=-1?"maximum maintenant":dl<0?"vient de passer":"dans "+dl+" j";
+    return row(n,`${new Date(t).toLocaleDateString("fr-FR",{timeZone:"UTC",day:"numeric",month:"short"})} · ${tx}`)+`<small>Environ ${z} météores/h au mieux · Lune ${Math.round(ki*100)} % au maximum (${ki<.3?"ciel sombre":ki<.6?"gênée par la Lune":"très gênée par la Lune"})</small>`}).join("");
+  // Planètes
+  const tp=t0+18*36e5;let p2='<h2>🪐 Planètes observables cette nuit</h2><div class="tw"><table><tr><th>Planète</th><th>Magnitude</th><th>Élongation</th><th>Observable</th></tr>';
+  for(const k2 of [0,1,3,4,5,6,7]){const g2=geo(k2,tp),a=[];for(let i=0;i<=N;i++)a.push(alt(g2.ra,g2.dec,t0+i*ST));
+    const iv=clip(ivs(t0,i=>a[i]>=10&&sunA[i]<-6)).sort((x,y)=>(y[1]-y[0])-(x[1]-x[0]))[0];let txt;
+    if(iv){let b=Math.round((iv[0]-t0)/ST);for(let i=b;i<=Math.round((iv[1]-t0)/ST);i++)if(a[i]>a[b])b=i;txt=`<span class="ok">${hm(iv[0])} → ${hm(iv[1])}</span> · max ${f1(a[b],0)}° à ${hm(t0+b*ST)}`}
+    else{let mx=-90;for(let i=0;i<=N;i++)if(sunA[i]<-6&&t0+i*ST>=setT&&t0+i*ST<=endT&&a[i]>mx)mx=a[i];txt=mx>0?`<span class="warn">Trop basse (max ${f1(mx,0)}°)</span>`:`<span class="bad">Sous l’horizon ou de jour</span>`}
+    p2+=`<tr><td>${PL[k2][0]}</td><td>${f1(g2.mag)}${g2.mag>5.5?" (instrument)":""}</td><td>${f1(g2.el,0)}°</td><td>${txt}</td></tr>`}
+  $("k-pla").innerHTML=p2+'</table></div><small>Observable : plus de 10° au-dessus de l’horizon quand le Soleil est à plus de 6° sous l’horizon. Magnitudes approximatives (anneaux de Saturne non pris en compte).</small>';
+}
+// Météo
+async function loadWeather(){
+  try{
+    const ac=new AbortController(),to=setTimeout(()=>ac.abort(),9000);
+    const u="https://api.open-meteo.com/v1/forecast?latitude="+LAT+"&longitude="+LON+"&hourly=temperature_2m,relative_humidity_2m,dew_point_2m,cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high,visibility,wind_speed_10m,precipitation_probability,shortwave_radiation,uv_index&current=temperature_2m,dew_point_2m,cloud_cover,wind_speed_10m,pressure_msl&timezone=Europe%2FParis&forecast_days=8&wind_speed_unit=kmh";
+    const r=await fetch(u,{signal:ac.signal});clearTimeout(to);const j=await r.json(),idx={};j.hourly.time.forEach((t,i)=>idx[t]=i);W={h:j.hourly,idx,cur:j.current};
+  }catch(e){W=null}
+  try{const r=await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"),j=await r.json(),v=parseFloat(j[j.length-1][1]);if(!isNaN(v))KP=Math.round(v*10)/10}catch(e){KP=null}
+  renderAll();
+}
+const todayStr=()=>new Date(Date.now()+tz(Date.now())).toISOString().slice(0,10);
+$("dt").value=todayStr();$("dt").onchange=renderAll;$("today").onclick=()=>{$("dt").value=todayStr();renderAll()};
+$("red").onclick=e=>{const on=e.target.getAttribute("aria-pressed")!=="true";e.target.setAttribute("aria-pressed",on);document.documentElement.toggleAttribute("data-red",on)};
+window.onerror=(m)=>{const b=$("err");b.hidden=false;b.textContent="Erreur : "+m};
+renderAll();loadWeather();
+</script>
+</body>
+</html>

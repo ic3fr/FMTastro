@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Notre place dans la Voie lactée</title>
+<style>
+:root{--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba;--accent:#4fb3ff;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba}}
+:root[data-theme="dark"]{--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "Instrument Sans","Segoe UI",system-ui,sans-serif}
+main{max-width:760px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.6rem;margin:0 0 2px;font-weight:600;letter-spacing:-.01em}
+.sub{color:var(--accent);margin:0 0 14px;min-height:1.5em}
+canvas{display:block;width:100%;aspect-ratio:1;background:radial-gradient(circle at 50% 50%,#0d1830,var(--bg) 75%);border:1px solid var(--line);border-radius:12px}
+.hud{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:12px 0}
+.hud div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+.hud small{display:block;color:var(--muted);font-size:.8rem}
+.hud b{font-weight:600;font-variant-numeric:tabular-nums}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+button{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;cursor:pointer}
+button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+p.note{color:var(--muted);font-size:.85rem;margin-top:14px}
+</style>
+</head>
+<body>
+<main>
+<p style="margin:0 0 10px"><a href="index.html" style="color:var(--accent);text-decoration:none">← Menu</a></p>
+<h1>Notre place dans la Voie lactée</h1>
+<p class="sub" id="tag">Le Soleil est à environ 26 000 années-lumière du centre.</p>
+<canvas id="c" role="img" aria-label="Schéma de la Voie lactée avec la position du système solaire"></canvas>
+<div class="bar" id="views">
+<button data-v="face" aria-pressed="true">Vue de dessus</button>
+<button data-v="side" aria-pressed="false">Vue de profil</button>
+</div>
+<div class="bar" id="speeds">
+<button data-sp="0" aria-pressed="false">Pause</button>
+<button data-sp="10" aria-pressed="true">10 Ma/s</button>
+<button data-sp="50" aria-pressed="false">50 Ma/s</button>
+<button data-sp="200" aria-pressed="false">200 Ma/s</button>
+<button id="dir">Sens : avenir</button>
+</div>
+<div class="bar" id="jumps">
+<button data-j="0">Aujourd’hui</button>
+<button data-j="-66">−66 Ma</button>
+<button data-j="-230">−230 Ma</button>
+<button data-j="-4600">−4 600 Ma</button>
+</div>
+<div class="hud">
+<div><small>Époque</small><b id="h1"></b></div>
+<div><small>Distance au centre galactique</small><b id="h2">≈ 26 000 années-lumière</b></div>
+<div><small>Vitesse · parcouru depuis l’ouverture</small><b id="h3"></b></div>
+<div><small>Angle parcouru depuis aujourd’hui</small><b id="h4"></b></div>
+<div><small>Tours depuis la naissance du Soleil</small><b id="h5"></b></div>
+<div><small>Hauteur au-dessus du plan galactique</small><b id="h6"></b></div>
+</div>
+<p class="note">Schéma pédagogique : la forme exacte des bras est approximative. Le Soleil fait un tour en environ 225 millions d’années (Ma) à environ 220 km/s. Il monte et descend de part et d’autre du plan galactique en environ 80 Ma. En vue de profil, l’épaisseur du disque est multipliée par 5.</p>
+</main>
+<script>
+const TAU=2*Math.PI,C=733.8,WP=.0256,R0=26000,B=Math.tan(12*Math.PI/180),PHI0=-Math.PI/4-Math.log(R0/3000)/B,PERIOD=TAU*R0/C,EX=5;
+const g=()=>(Math.random()+Math.random()+Math.random()+Math.random()-2)*1.73;
+const G=[[],[],[],[],[]],COL=["rgba(140,175,255,.5)","rgba(255,130,170,.55)","rgba(255,215,150,.45)","rgba(200,210,235,.28)","rgba(255,200,120,.5)"];
+for(let i=0;i<4400;i++){const k=i%4,r=4500+Math.pow(Math.random(),1.3)*45000;
+  G[Math.random()<.14?1:0].push([r,PHI0+k*Math.PI/2+Math.log(r/3000)/B+g()*.09,g()*(120+r*.004)])}
+for(let i=0;i<160;i++)G[0].push([R0+g()*700,-Math.PI/2+(Math.random()-.5)*.35,g()*150]);
+for(let i=0;i<1600;i++){const xb=g()*3800,yb=g()*900,a=Math.PI/2+.52,X=xb*Math.cos(a)-yb*Math.sin(a),Y=xb*Math.sin(a)+yb*Math.cos(a);G[2].push([Math.hypot(X,Y),Math.atan2(Y,X),g()*300])}
+for(let i=0;i<3500;i++){const r=1500-Math.log(1-Math.random()*.97)*14000;if(r<52000)G[3].push([r,Math.random()*TAU,g()*(250+r*.002)])}
+for(let i=0;i<1400;i++){const r=Math.abs(g())*2600+200;G[4].push([r,Math.random()*TAU,g()*Math.min(r,1800)*.9])}
+const ARMS=[["Sagittaire",0],["Écu-Croix",1],["Norma",2],["Persée",3]];
+const cv=document.getElementById("c"),ctx=cv.getContext("2d"),$=id=>document.getElementById(id);
+let size=0,tM=0,speed=10,dir=1,face=true,last=performance.now();const start=last;
+function resize(){const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;size=r.width;cv.width=r.width*d;cv.height=r.width*d;ctx.setTransform(d,0,0,d,0,0)}
+addEventListener("resize",resize);resize();
+function text(s,x,y,col,align){ctx.font="12.5px system-ui,sans-serif";ctx.fillStyle=col;ctx.textAlign=align;ctx.fillText(s,x,y)}
+const fmt=n=>Math.abs(n).toLocaleString("fr-FR",{maximumFractionDigits:0});
+function frame(now){
+  const dt=Math.min(.1,(now-last)/1e3);last=now;
+  tM=Math.max(-4600,Math.min(1000,tM+dir*speed*dt));
+  const c=size/2,k=(size/2-12)/55000;
+  ctx.clearRect(0,0,size,size);
+  ctx.globalCompositeOperation="lighter";
+  for(let gi=0;gi<5;gi++){ctx.fillStyle=COL[gi];
+    for(const p of G[gi]){const th=p[1]-(gi<3?WP:C/Math.max(p[0],4000))*tM,x=c+p[0]*Math.cos(face?th:th+Math.PI/2)*k,y=face?c-p[0]*Math.sin(th)*k:c-p[2]*k*EX;ctx.fillRect(x,y,1.6,1.6)}}
+  ctx.globalCompositeOperation="source-over";
+  const ths=-Math.PI/2-(C/R0)*tM,zs=330*Math.sin(.198+TAU*tM/80);
+  let sx,sy;
+  if(face){
+    ctx.setLineDash([3,6]);ctx.strokeStyle="rgba(232,237,247,.3)";ctx.lineWidth=1;ctx.beginPath();ctx.arc(c,c,R0*k,0,TAU);ctx.stroke();ctx.setLineDash([]);
+    sx=c+R0*Math.cos(ths)*k;sy=c-R0*Math.sin(ths)*k;
+    for(const[n,i] of ARMS){const a=PHI0+i*Math.PI/2+Math.log(41000/3000)/B-WP*tM;text(n,c+41000*Math.cos(a)*k,c-41000*Math.sin(a)*k,"rgba(146,160,186,.85)","center")}
+  }else{sx=c+R0*Math.cos(ths+Math.PI/2)*k;sy=c-zs*k*EX}
+  text("Centre galactique",c,c-16,"rgba(255,225,170,.9)","center");
+  ctx.shadowColor="#4fb3ff";ctx.shadowBlur=14;ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(sx,sy,4,0,TAU);ctx.fill();ctx.shadowBlur=0;
+  ctx.strokeStyle="#4fb3ff";ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(sx,sy,9,0,TAU);ctx.stroke();
+  const right=sx>size*.68;text("Système solaire",sx+(right?-14:14),sy-4,"#8fd0ff",right?"right":"left");text("vous êtes ici",sx+(right?-14:14),sy+11,"rgba(146,160,186,.95)",right?"right":"left");
+  ctx.strokeStyle="#e8edf7";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(14,size-18);ctx.lineTo(14+10000*k,size-18);ctx.stroke();text("10 000 al",14,size-26,"#92a0ba","left");
+  $("h1").textContent=Math.abs(tM)<.5?"Aujourd’hui":tM<0?"il y a "+fmt(tM)+" Ma":"dans "+fmt(tM)+" Ma";
+  $("h3").textContent="220 km/s · "+fmt(220*(now-start)/1e3)+" km";
+  $("h4").textContent=fmt(Math.abs(tM)*C/R0*180/Math.PI)+"° ("+(Math.abs(tM)/PERIOD).toFixed(2).replace(".",",")+" tour)";
+  $("h5").textContent=((4600+tM)/PERIOD).toFixed(1).replace(".",",");
+  $("h6").textContent=(zs>=0?"+":"−")+fmt(zs)+" années-lumière";
+  requestAnimationFrame(frame);
+}
+function pick(id,attr,fn){$(id).addEventListener("click",e=>{const b=e.target.closest("button["+attr+"]");if(!b)return;document.querySelectorAll("#"+id+" button["+attr+"]").forEach(x=>x.setAttribute("aria-pressed",x===b));fn(b.getAttribute(attr))})}
+pick("views","data-v",v=>{face=v==="face"});
+pick("speeds","data-sp",s=>{speed=+s});
+const TAGS={0:"Aujourd’hui : le Soleil se trouve entre les bras de Persée et du Sagittaire.","-66":"Il y a 66 Ma : extinction des dinosaures. Le Soleil était un peu plus loin sur son orbite.","-230":"Il y a 230 Ma : premiers dinosaures. Un tour de galaxie plus tôt, le Soleil était presque au même endroit.","-4600":"Il y a 4,6 milliards d’années : naissance du Soleil, il y a environ 20 tours."};
+$("jumps").addEventListener("click",e=>{const b=e.target.closest("button[data-j]");if(!b)return;tM=+b.dataset.j;$("tag").textContent=TAGS[b.dataset.j]});
+$("dir").onclick=e=>{dir=-dir;e.target.textContent=dir>0?"Sens : avenir":"Sens : passé"};
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

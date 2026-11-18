@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Phases de la Lune · Chemillé</title>
+<style>
+:root{--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba;--accent:#4fb3ff;--gold:#ffe9a8;color-scheme:dark}
+:root[data-red]{--bg:#0f0000;--panel:#1b0505;--line:#4a1010;--text:#ff6a5a;--muted:#b0382c;--accent:#ff4a3a;--gold:#ff6a5a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "Instrument Sans","Segoe UI",system-ui,sans-serif;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+main{max-width:760px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.7rem;margin:0;font-weight:600;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:2px 0 14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+h2{font-size:1.02rem;margin:0 0 8px;font-weight:600}
+small,.note{color:var(--muted);font-size:.85rem}
+.hero{text-align:center;padding:18px 16px}
+.big{font-size:1.5rem;font-weight:600;color:var(--gold);line-height:1.25;margin:2px 0 12px}
+.cd{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.cd div{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 0}
+.cd b{display:block;font-size:1.9rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.cd span{color:var(--muted);font-size:.8rem}
+canvas{display:block;width:100%;max-width:340px;aspect-ratio:1;margin:0 auto}
+.r{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--line)}
+.r:last-child{border-bottom:0}.r span{color:var(--muted)}.r b{font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+.days{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px}
+.days div{flex:none;width:58px;text-align:center;border:1px solid var(--line);border-radius:10px;padding:6px 0;background:var(--bg)}
+.days div.t{border-color:var(--accent)}
+.days i{display:block;font-style:normal;font-size:1.6rem;line-height:1.3}
+.days small{display:block;line-height:1.25}
+button{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;cursor:pointer}
+button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<main>
+<p style="margin:0 0 10px"><a href="index.html" style="color:var(--accent);text-decoration:none">← Menu</a></p>
+<h1>Phases de la Lune</h1>
+<p class="sub">Chemillé-en-Anjou (France) · heures de Paris</p>
+<noscript><p>JavaScript est désactivé : la page ne peut pas s’afficher.</p></noscript>
+<section class="card hero">
+<small>Prochaine pleine Lune</small>
+<div class="big" id="fdate">Chargement…</div>
+<div class="cd" aria-live="off"><div><b id="cd">–</b><span>jours</span></div><div><b id="ch">–</b><span>heures</span></div><div><b id="cm">–</b><span>minutes</span></div><div><b id="cs">–</b><span>secondes</span></div></div>
+<p class="note" id="fnote" style="margin:10px 0 0"></p>
+</section>
+<section class="card">
+<h2>La Lune en ce moment</h2>
+<canvas id="c" role="img" aria-label="La Lune telle qu’on la voit depuis Chemillé"></canvas>
+<div id="info"></div>
+</section>
+<section class="card"><h2>14 prochains jours</h2><div class="days" id="days"></div></section>
+<section class="card"><h2>Prochaines phases</h2><div id="next"></div><p class="note" style="margin-bottom:0">Pleine Lune et nouvelle Lune : calcul précis à environ une minute près. Quartiers : ≈ à 30 minutes près.</p></section>
+<button id="red" aria-pressed="false">Mode rouge</button>
+<p class="note" style="margin-top:14px">Les phases sont les mêmes partout sur Terre ; seuls l’heure et l’horizon (lever, coucher, hauteur de la Lune) dépendent du lieu. Calculs faits dans la page, sans connexion nécessaire.</p>
+</main>
+<script>
+const LAT=47.2167,LON=-0.7333,TZ="Europe/Paris",D=Math.PI/180,$=id=>document.getElementById(id);
+const S=x=>Math.sin(x*D),Co=x=>Math.cos(x*D),dd=ms=>ms/864e5+2440587.5-2451545;
+const tzf=new Intl.DateTimeFormat("en-US",{timeZone:TZ,hourCycle:"h23",year:"numeric",month:"numeric",day:"numeric",hour:"numeric",minute:"numeric",second:"numeric"});
+const tz=ms=>{const p=tzf.formatToParts(ms).reduce((o,x)=>(o[x.type]=+x.value,o),{});return Date.UTC(p.year,p.month-1,p.day,p.hour%24,p.minute,p.second)-Math.floor(ms/1e3)*1e3};
+const hm=ms=>new Date(ms).toLocaleTimeString("fr-FR",{timeZone:TZ,hour:"2-digit",minute:"2-digit"}).replace(":","h");
+const row=(a,b)=>`<div class="r"><span>${a}</span><b>${b}</b></div>`,f1=x=>x.toFixed(1).replace(".",",");
+function sunLon(ms){const d=dd(ms),g=(357.529+.98560028*d)*D;return(280.459+.98564736*d+1.915*Math.sin(g)+.02*Math.sin(2*g))*D}
+function moonEq(ms){
+  const T=dd(ms)/36525,lam=218.32+481267.881*T+6.29*S(135+477198.87*T)-1.27*S(259.3-413335.36*T)+.66*S(235.7+890534.22*T)+.21*S(269.9+954397.74*T)-.19*S(357.5+35999.05*T)-.11*S(186.5+966404*T);
+  const bet=(5.13*S(93.3+483202.03*T)+.28*S(228.2+960400.87*T)-.28*S(318.3+6003.18*T)-.17*S(217.6-407332.2*T))*D,e=(23.439-.013*T)*D,l=lam*D;
+  const E=((lam-sunLon(ms)/D)%360+360)%360,Mp=134.9+477198.85*T,hp=.9508+.0518*Co(Mp)+.0095*Co(2*E-Mp)+.0078*Co(2*E)+.0028*Co(2*Mp);
+  return{ra:Math.atan2(Math.sin(l)*Math.cos(e)-Math.tan(bet)*Math.sin(e),Math.cos(l)),dec:Math.asin(Math.sin(bet)*Math.cos(e)+Math.cos(bet)*Math.sin(e)*Math.sin(l)),E,dist:6378.14/Math.sin(hp*D)};
+}
+const alt=(ra,dec,ms)=>{const H=(280.46061837+360.98564736629*dd(ms)+LON)*D-ra;return Math.asin(Math.sin(LAT*D)*Math.sin(dec)+Math.cos(LAT*D)*Math.cos(dec)*Math.cos(H))/D};
+// Meeus, chapitre 49 : k entier = nouvelle Lune, k + 0,5 = pleine Lune
+function meeus(k,full){
+  const T=k/1236.85,T2=T*T,T3=T2*T,T4=T3*T,s=Math.sin,r=D;
+  let j=2451550.09766+29.530588861*k+.00015437*T2-.00000015*T3+7.3e-10*T4;
+  const E=1-.002516*T-.0000074*T2,M=(2.5534+29.1053567*k-.0000014*T2-1.1e-7*T3)*r,P=(201.5643+385.81693528*k+.0107582*T2+.00001238*T3-5.8e-8*T4)*r,F=(160.7108+390.67050284*k-.0016118*T2-.00000227*T3+1.1e-8*T4)*r,O=(124.7746-1.56375588*k+.0020672*T2+.00000215*T3)*r;
+  const a=full?[-.40614,.17302,.01614,.01043,.00734,-.00515,.00209]:[-.4072,.17241,.01608,.01039,.00739,-.00514,.00208];
+  j+=a[0]*s(P)+a[1]*E*s(M)+a[2]*s(2*P)+a[3]*s(2*F)+a[4]*E*s(P-M)+a[5]*E*s(P+M)+a[6]*E*E*s(2*M)-.00111*s(P-2*F)-.00057*s(P+2*F)+.00056*E*s(2*P+M)-.00042*s(3*P)+.00042*E*s(M+2*F)+.00038*E*s(M-2*F)-.00024*E*s(2*P-M)-.00017*s(O)-.00007*s(P+2*M)+.00004*s(2*P-2*F)+.00004*s(3*M)+.00003*s(P+M-2*F)+.00003*s(2*P+2*F)-.00003*s(P+M+2*F)+.00003*s(P-M+2*F)-.00002*s(P-M-2*F)-.00002*s(3*P+M)+.00002*s(4*P);
+  for(const[a0,b,c] of [[299.77+.107408*k-.009173*T2,0,.000325],[251.88+.016321*k,0,.000165],[251.83+26.651886*k,0,.000164],[349.42+36.412478*k,0,.000126],[84.66+18.206239*k,0,.00011],[141.74+53.303771*k,0,.000062],[207.14+2.453732*k,0,.00006],[154.84+7.30686*k,0,.000056],[34.52+27.261239*k,0,.000047],[207.19+.121824*k,0,.000042],[291.34+1.844379*k,0,.00004],[161.72+24.198154*k,0,.000037],[239.56+25.513099*k,0,.000035],[331.55+3.592518*k,0,.000023]])j+=c*s(a0*r);
+  return(j-2440587.5)*864e5-69e3; // TD → UT (ΔT ≈ 69 s)
+}
+function nextMeeus(now,full){const k0=Math.floor((now/864e5+2440587.5-2451550.09766)/29.530588861)-1;for(let i=0;i<4;i++){const t=meeus(k0+i+(full?.5:0),full);if(t>now)return t}}
+function nextQuarter(ms,a){const w=t=>((moonEq(t).E-a+540)%360)-180;let t0=ms,w0=w(t0);
+  for(let i=1;i<=130;i++){const t1=ms+i*.25*864e5,w1=w(t1);if(w0<0&&w1>=0&&w1-w0<90){let lo=t0,hi=t1;for(let k=0;k<26;k++){const m=(lo+hi)/2;w(m)<0?lo=m:hi=m}return hi}t0=t1;w0=w1}return null}
+const fdt=ms=>new Date(ms).toLocaleString("fr-FR",{timeZone:TZ,weekday:"long",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"}).replace(":","h").replace(/(\d{2})h(\d{2})$/,"$1 h $2");
+const fshort=ms=>new Date(ms).toLocaleString("fr-FR",{timeZone:TZ,weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+// Dessin
+const MARIA=[[-.25,-.35,.26,.2],[.18,-.28,.15,.13],[.36,-.04,.19,.15],[.57,.13,.13,.1],[.72,-.2,.09,.07],[-.58,0,.2,.34],[-.2,.45,.16,.12],[-.5,.4,.1,.09],[.1,.05,.12,.08]];
+const MI=new Image();MI.src="moon.jpg";
+const cv=$("c"),ctx=cv.getContext("2d");let size=0;
+function resize(){const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;size=r.width;cv.width=r.width*d;cv.height=r.width*d;ctx.setTransform(d,0,0,d,0,0)}
+addEventListener("resize",resize);resize();
+function draw(E){
+  const W=size,c=W/2,R=W*.36,k=(1-Co(E))/2,cs=Co(E);ctx.clearRect(0,0,W,W);
+  const gl=ctx.createRadialGradient(c,c,R*.9,c,c,R*1.35);gl.addColorStop(0,"rgba(255,248,225,"+(.05+.2*k)+")");gl.addColorStop(1,"rgba(255,248,225,0)");ctx.fillStyle=gl;ctx.fillRect(0,0,W,W);
+  ctx.save();ctx.translate(c,c);ctx.fillStyle="#e9e5d3";ctx.beginPath();ctx.arc(0,0,R,0,7);ctx.fill();
+  ctx.save();ctx.beginPath();ctx.arc(0,0,R,0,7);ctx.clip();
+  if(MI.complete&&MI.naturalWidth)ctx.drawImage(MI,-R,-R,2*R,2*R);else{
+  for(const[x,y,rx,ry] of MARIA){ctx.fillStyle="rgba(95,100,115,.38)";ctx.beginPath();ctx.ellipse(x*R,y*R,rx*R,ry*R,0,0,7);ctx.fill()}
+  ctx.fillStyle="rgba(255,255,255,.6)";ctx.beginPath();ctx.arc(-.15*R,.72*R,.04*R,0,7);ctx.fill();}
+  ctx.save();ctx.scale(E<180?1:-1,1);ctx.beginPath();ctx.arc(0,0,R+1,0,7);ctx.moveTo(0,-R);ctx.arc(0,0,R,-Math.PI/2,Math.PI/2,false);
+  for(let i=0;i<=60;i++){const u=Math.PI*(1-i/60);ctx.lineTo(R*cs*Math.sin(u),-R*Math.cos(u))}
+  ctx.closePath();ctx.fillStyle="rgba(12,18,34,.93)";ctx.fill("evenodd");ctx.restore();ctx.restore();
+  ctx.strokeStyle="rgba(255,255,255,.1)";ctx.beginPath();ctx.arc(0,0,R,0,7);ctx.stroke();ctx.restore();
+}
+const EMO=["🌑","🌒","🌓","🌔","🌕","🌖","🌗","🌘"],PN=[[0,"Nouvelle Lune"],[90,"Premier quartier"],[180,"Pleine Lune"],[270,"Dernier quartier"]];
+function pname(E){for(const[a,n] of PN)if(Math.abs(((E-a+540)%360)-180)<6)return n;return E<90?"Premier croissant":E<180?"Lune gibbeuse croissante":E<270?"Lune gibbeuse décroissante":"Dernier croissant"}
+// Données calculées rarement
+let FM=nextMeeus(Date.now(),true),lastSlow=0;
+function slow(now){
+  lastSlow=now;if(FM<now)FM=nextMeeus(now,true);
+  const alF=moonEq(FM);const h=alt(alF.ra,alF.dec,FM);
+  $("fdate").textContent=fdt(FM);
+  $("fnote").textContent="À ce moment, la Lune sera "+(h>0?"à "+Math.round(h)+"° au-dessus de l’horizon":"sous l’horizon")+" à Chemillé. Heure UTC : "+new Date(FM).toISOString().slice(11,16).replace(":","h")+".";
+  const ev=[["Pleine Lune",FM,""],["Nouvelle Lune",nextMeeus(now,false),""],["Premier quartier",nextQuarter(now,90),"≈ "],["Dernier quartier",nextQuarter(now,270),"≈ "]].sort((a,b)=>a[1]-b[1]);
+  $("next").innerHTML=ev.map(e=>row(e[0],e[2]+fshort(e[1]))).join("");
+  const g=Date.now()+tz(Date.now()),mid=Math.floor(g/864e5)*864e5-tz(Date.now()),days=[];
+  for(let i=0;i<14;i++){const t=mid+i*864e5+21*36e5,E=moonEq(t).E;
+    days.push(`<div class="${i?"":"t"}"><i>${EMO[Math.round(E/45)%8]}</i><small>${new Date(t).toLocaleDateString("fr-FR",{timeZone:TZ,weekday:"short",day:"numeric"})}</small><small>${Math.round((1-Co(E))/2*100)} %</small></div>`)}
+  $("days").innerHTML=days.join("");
+  let up=[],dn=[],pv=null;
+  for(let i=0;i<=480;i++){const t=mid+i*3*6e4,m=moonEq(t),a=alt(m.ra,m.dec,t)-.125;if(pv!==null&&(pv<0)!==(a<0)){const tt=t-3*6e4*(a/(a-pv));(a>pv?up:dn).push(hm(tt))}pv=a}
+  window._rs=[up.join(", ")||"pas de lever",dn.join(", ")||"pas de coucher"];
+}
+function tick(){
+  const now=Date.now();if(now-lastSlow>60000||FM<now)slow(now);
+  let d=Math.max(0,FM-now);const j=Math.floor(d/864e5);d-=j*864e5;const h=Math.floor(d/36e5);d-=h*36e5;const m=Math.floor(d/6e4);d-=m*6e4;
+  $("cd").textContent=j;$("ch").textContent=String(h).padStart(2,"0");$("cm").textContent=String(m).padStart(2,"0");$("cs").textContent=String(Math.floor(d/1e3)).padStart(2,"0");
+  const me=moonEq(now),E=me.E;draw(E);
+  $("info").innerHTML=row("Phase",pname(E))+row("Partie éclairée",Math.round((1-Co(E))/2*100)+" %")+row("Âge de la Lune",f1(E/360*29.530589)+" jours")+row("Distance à la Terre",Math.round(me.dist).toLocaleString("fr-FR")+" km")+row("Lever de la Lune aujourd’hui",window._rs[0])+row("Coucher de la Lune aujourd’hui",window._rs[1]);
+}
+$("red").onclick=e=>{const on=e.target.getAttribute("aria-pressed")!=="true";e.target.setAttribute("aria-pressed",on);document.documentElement.toggleAttribute("data-red",on)};
+window._rs=["…","…"];tick();setInterval(tick,1000);
+</script>
+</body>
+</html>

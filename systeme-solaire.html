@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Système solaire en temps réel</title>
+<style>
+:root{--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba;--accent:#4fb3ff;--sun:#ffcf5a;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba}}
+:root[data-theme="dark"]{--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "Instrument Sans","Segoe UI",system-ui,sans-serif}
+main{max-width:760px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.6rem;margin:0 0 2px;font-weight:600;letter-spacing:-.01em}
+.date{color:var(--accent);font-size:1.05rem;font-variant-numeric:tabular-nums;margin:0 0 14px}
+canvas{display:block;width:100%;aspect-ratio:1;background:radial-gradient(circle at 50% 50%,#0d1830,var(--bg) 70%);border:1px solid var(--line);border-radius:12px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+button{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;cursor:pointer}
+button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;min-width:460px}
+th,td{text-align:right;padding:7px 8px;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:500;font-size:.85rem}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px}
+tr.earth td{color:var(--accent)}
+p.note{color:var(--muted);font-size:.85rem;margin-top:14px}
+</style>
+</head>
+<body>
+<main>
+<p style="margin:0 0 10px"><a href="index.html" style="color:var(--accent);text-decoration:none">← Menu</a></p>
+<h1>Le système solaire maintenant</h1>
+<p class="date" id="date"></p>
+<canvas id="c" role="img" aria-label="Vue du dessus des positions des planètes autour du Soleil"></canvas>
+<div class="bar" id="views">
+  <button data-v="in" aria-pressed="true">Planètes internes</button>
+  <button data-v="all" aria-pressed="false">Système complet</button>
+</div>
+<div class="bar" id="speeds">
+  <button data-s="1" aria-pressed="true">Temps réel</button>
+  <button data-s="86400" aria-pressed="false">1 jour/s</button>
+  <button data-s="2592000" aria-pressed="false">1 mois/s</button>
+  <button data-s="31557600" aria-pressed="false">1 an/s</button>
+  <button id="now">Revenir à maintenant</button>
+</div>
+<div class="tw"><table>
+<thead><tr><th>Planète</th><th>Soleil (UA)</th><th>Terre (UA)</th><th>Lumière (min)</th><th>Longitude</th></tr></thead>
+<tbody id="rows"></tbody>
+</table></div>
+<p class="note">Vue de dessus, depuis le nord de l’écliptique. Positions calculées avec les éléments képlériens approchés du JPL (précision d’environ un degré). Dans la vue complète, les distances sont compressées pour que les planètes internes restent visibles.</p>
+</main>
+<script>
+const D=Math.PI/180;
+// a,da, e,de, I,dI, L,dL, varpi,dvarpi, Omega,dOmega (par siècle)
+const P=[
+["Mercure","#b8b2a7",[.38709927,.00000037,.20563593,.00001906,7.00497902,-.00594749,252.25032350,149472.67411175,77.45779628,.16047689,48.33076593,-.12534081]],
+["Vénus","#e8c98a",[.72333566,.0000039,.00677672,-.00004107,3.39467605,-.0007889,181.9790995,58517.81538729,131.60246718,.00268329,76.67984255,-.27769418]],
+["Terre","#4fb3ff",[1.00000261,.00000562,.01671123,-.00004392,-.00001531,-.01294668,100.46457166,35999.37244981,102.93768193,.32327364,0,0]],
+["Mars","#e2704f",[1.52371034,.00001847,.0933941,.00007882,1.84969142,-.00813131,-4.55343205,19140.30268499,-23.94362959,.44441088,49.55953891,-.29257343]],
+["Jupiter","#d9b48f",[5.202887,-.00011607,.04838624,-.00013253,1.30439695,-.00183714,34.39644051,3034.74612775,14.72847983,.21252668,100.47390909,.20469106]],
+["Saturne","#e6d39e",[9.53667594,-.0012506,.05386179,-.00050991,2.48599187,.00193609,49.95424423,1222.49362201,92.59887831,-.41897216,113.66242448,-.28867794]],
+["Uranus","#9fe0e6",[19.18916464,-.00196176,.04725744,-.00004397,.77263783,-.00242939,313.23810451,428.48202785,170.9542763,.40805281,74.01692503,.04240589]],
+["Neptune","#6f8cff",[30.06992276,.00026291,.00859048,.00005105,1.77004347,.00035372,-55.12002969,218.45945325,44.96476227,-.32241464,131.78422574,-.00508664]]
+];
+function xy(el,T,E){
+  const [a0,da,e0,de,I0,dI,L0,dL,w0,dw,O0,dO]=el;
+  const a=a0+da*T,e=e0+de*T,I=(I0+dI*T)*D,w=w0+dw*T,O=(O0+dO*T)*D;
+  const om=(w-(O0+dO*T))*D;
+  if(E===undefined){
+    let M=(((L0+dL*T-w)%360)+540)%360-180; M*=D;
+    E=M+e*Math.sin(M);
+    for(let i=0;i<8;i++)E=M+e*Math.sin(E);
+  }
+  const xp=a*(Math.cos(E)-e),yp=a*Math.sqrt(1-e*e)*Math.sin(E);
+  const co=Math.cos(om),so=Math.sin(om),cO=Math.cos(O),sO=Math.sin(O),cI=Math.cos(I);
+  return [(co*cO-so*sO*cI)*xp+(-so*cO-co*sO*cI)*yp,(co*sO+so*cO*cI)*xp+(-so*sO+co*cO*cI)*yp];
+}
+const cv=document.getElementById("c"),ctx=cv.getContext("2d");
+let view="in",speed=1,simMs=Date.now(),last=performance.now(),live=true,size=0,lastTable=0;
+function resize(){const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;size=r.width;cv.width=r.width*d;cv.height=r.width*d;ctx.setTransform(d,0,0,d,0,0)}
+addEventListener("resize",resize);resize();
+function proj(x,y){
+  const r=Math.hypot(x,y);if(r===0)return[size/2,size/2];
+  const half=size/2-26;
+  const k=view==="in"?Math.min(r/1.85,1.4)*half/1.4*(r>1.85?1:1):Math.sqrt(r/31)*half;
+  const s=view==="in"?(r/1.85)*half:k;
+  return[size/2+x/r*s,size/2-y/r*s];
+}
+function draw(T){
+  ctx.clearRect(0,0,size,size);
+  const list=view==="in"?P.slice(0,4):P;
+  ctx.lineWidth=1;
+  for(const [n,c,el] of list){
+    ctx.beginPath();
+    for(let i=0;i<=120;i++){const [x,y]=xy(el,T,i/120*2*Math.PI),[px,py]=proj(x,y);i?ctx.lineTo(px,py):ctx.moveTo(px,py)}
+    ctx.strokeStyle=n==="Terre"?"rgba(79,179,255,.55)":"rgba(146,160,186,.28)";ctx.stroke();
+  }
+  ctx.fillStyle="#ffcf5a";ctx.shadowColor="#ffcf5a";ctx.shadowBlur=18;
+  ctx.beginPath();ctx.arc(size/2,size/2,6,0,7);ctx.fill();ctx.shadowBlur=0;
+  ctx.font="13px system-ui,sans-serif";
+  for(const [n,c,el] of list){
+    const [x,y]=xy(el,T),[px,py]=proj(x,y),e=n==="Terre";
+    ctx.fillStyle=c;ctx.beginPath();ctx.arc(px,py,e?6:4.5,0,7);ctx.fill();
+    if(e){ctx.strokeStyle="#fff";ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(px,py,9,0,7);ctx.stroke();ctx.lineWidth=1}
+    const left=px>size*0.78;
+    ctx.textAlign=left?"right":"left";ctx.fillStyle=e?"#8fd0ff":"#e8edf7";
+    ctx.fillText(n,px+(left?-11:11),py+4);
+  }
+}
+function table(T){
+  const ex=xy(P[2][2],T);let h="";
+  for(const [n,c,el] of P){
+    const [x,y]=xy(el,T),rs=Math.hypot(x,y),re=Math.hypot(x-ex[0],y-ex[1]);
+    let lon=Math.atan2(y,x)/D;if(lon<0)lon+=360;
+    h+=`<tr class="${n==="Terre"?"earth":""}"><td><span class="dot" style="background:${c}"></span>${n}</td><td>${rs.toFixed(3)}</td><td>${n==="Terre"?"—":re.toFixed(3)}</td><td>${n==="Terre"?"—":(re*8.317).toFixed(1)}</td><td>${lon.toFixed(1)}°</td></tr>`;
+  }
+  document.getElementById("rows").innerHTML=h;
+}
+function frame(now){
+  const dt=now-last;last=now;
+  if(live&&speed===1)simMs=Date.now();else simMs+=dt*speed;
+  const T=(simMs/86400000+2440587.5-2451545)/36525;
+  draw(T);
+  if(now-lastTable>250){
+    lastTable=now;table(T);
+    document.getElementById("date").textContent=new Date(simMs).toLocaleString("fr-FR",{dateStyle:"full",timeStyle:"medium"});
+  }
+  requestAnimationFrame(frame);
+}
+function pick(id,attr,fn){
+  document.getElementById(id).addEventListener("click",e=>{
+    const b=e.target.closest("button["+attr+"]");if(!b)return;
+    document.querySelectorAll("#"+id+" button["+attr+"]").forEach(x=>x.setAttribute("aria-pressed",x===b));
+    fn(b.dataset[attr.slice(5)]);
+  });
+}
+pick("views","data-v",v=>{view=v});
+pick("speeds","data-s",s=>{speed=+s;live=speed===1;if(live)simMs=Date.now()});
+document.getElementById("now").addEventListener("click",()=>{
+  simMs=Date.now();speed=1;live=true;
+  document.querySelectorAll("#speeds button[data-s]").forEach(x=>x.setAttribute("aria-pressed",x.dataset.s==="1"));
+});
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

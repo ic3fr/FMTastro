@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Échelle de l’univers</title>
+<style>
+:root{--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba;--accent:#4fb3ff;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba}}
+:root[data-theme="dark"]{--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "Instrument Sans","Segoe UI",system-ui,sans-serif}
+main{max-width:760px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.6rem;margin:0 0 2px;font-weight:600;letter-spacing:-.01em}
+.sub{color:var(--accent);margin:0 0 14px;font-variant-numeric:tabular-nums}
+canvas{display:block;width:100%;aspect-ratio:1;background:radial-gradient(circle at 50% 50%,#0d1830,var(--bg) 75%);border:1px solid var(--line);border-radius:12px}
+.info{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:12px 0;min-height:104px}
+.info b{font-size:1.05rem}.info p{margin:4px 0 0;color:var(--muted)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;align-items:center}
+button{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;cursor:pointer;white-space:nowrap}
+button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px}
+.chips button{flex:none;padding:6px 10px;font-size:.9rem}
+p.note{color:var(--muted);font-size:.85rem;margin-top:14px}
+</style>
+</head>
+<body>
+<main>
+<p style="margin:0 0 10px"><a href="index.html" style="color:var(--accent);text-decoration:none">← Menu</a></p>
+<h1>Échelle de l’univers</h1>
+<p class="sub" id="fov"></p>
+<canvas id="c" role="img" aria-label="Cercles concentriques représentant des objets de l’univers à leur échelle réelle"></canvas>
+<div class="info" aria-live="polite"><b id="n"></b><p id="f"></p><p id="r"></p></div>
+<input type="range" id="sl" min="-36" max="27.5" step="0.01" value="0.5" aria-label="Échelle de la vue">
+<div class="bar" id="go">
+<button data-d="-1" aria-pressed="false">Zoomer</button>
+<button data-d="0" aria-pressed="true">Pause</button>
+<button data-d="1" aria-pressed="false">Dézoomer</button>
+</div>
+<div class="chips" id="chips"></div>
+<p class="note">Tous les cercles sont à la même échelle : chaque cercle est un objet, et le cadre est le champ de vision. Les tailles sont des ordres de grandeur arrondis. Touchez un objet pour s’en approcher.</p>
+</main>
+<script>
+const O=[
+["Longueur de Planck",1.6e-35,"La plus petite longueur ayant un sens dans la physique actuelle."],
+["Quark",1e-18,"Particule élémentaire : on sait seulement qu’elle mesure moins de 10⁻¹⁸ m."],
+["Proton",1.7e-15,"Fait de trois quarks liés, d’environ 1,7 femtomètre de diamètre."],
+["Atome d’hydrogène",1.1e-10,"Un proton et un électron : le noyau est environ 60 000 fois plus petit que l’atome."],
+["ADN (largeur)",2e-9,"La double hélice mesure environ 2 nanomètres de large."],
+["Virus",1e-7,"Un coronavirus fait environ 100 nanomètres."],
+["Globule rouge",7e-6,"Environ 7 micromètres. Le corps humain en compte quelque 25 000 milliards."],
+["Cheveu (épaisseur)",7e-5,"Entre 50 et 100 micromètres."],
+["Fourmi",4e-3,"Quelques millimètres."],
+["Humain",1.7,"Vous êtes ici, à environ un mètre."],
+["Mont Everest",8849,"Environ 8,8 km au-dessus du niveau de la mer."],
+["Terre",1.2742e7,"Diamètre moyen d’environ 12 742 km."],
+["Orbite de la Lune",7.69e8,"La Lune est à 384 400 km en moyenne de la Terre."],
+["Soleil",1.3927e9,"Environ 109 fois le diamètre de la Terre."],
+["Bételgeuse",1.2e12,"Supergéante rouge, environ 900 fois le diamètre du Soleil (valeur approximative)."],
+["Orbite de Neptune",9e12,"Environ 60 unités astronomiques : la lumière met plus de 8 heures à la traverser."],
+["Nuage d’Oort",3e16,"Réservoir de comètes d’environ 3 années-lumière de diamètre (estimation)."],
+["Nébuleuse d’Orion",2.3e17,"Pouponnière d’étoiles à environ 1 350 années-lumière, large d’environ 24 al."],
+["Voie lactée",9.5e20,"Environ 100 000 années-lumière, avec des centaines de milliards d’étoiles."],
+["Groupe local",9.5e22,"Plus de 80 galaxies sur environ 10 millions d’années-lumière, dont Andromède."],
+["Superamas de la Vierge",1e24,"Environ 110 millions d’années-lumière. Il contient le Groupe local."],
+["Laniakea",4.9e24,"Le superamas dont fait partie la Voie lactée : environ 520 millions d’années-lumière."],
+["Univers observable",8.8e26,"Environ 93 milliards d’années-lumière de diamètre."]];
+const SUP={"-":"⁻","0":"⁰","1":"¹","2":"²","3":"³","4":"⁴","5":"⁵","6":"⁶","7":"⁷","8":"⁸","9":"⁹"},sup=n=>String(n).split("").map(c=>SUP[c]).join("");
+const LY=9.461e15,U=[[1e-15,"fm"],[1e-12,"pm"],[1e-9,"nm"],[1e-6,"µm"],[1e-3,"mm"],[1,"m"],[1e3,"km"]];
+const nf=x=>x>=10?Math.round(x).toLocaleString("fr-FR"):x.toPrecision(2).replace(".",",");
+function len(m){
+  if(m>=LY){const a=m/LY;return a>=1e9?nf(a/1e9)+" milliards d’al":a>=1e6?nf(a/1e6)+" millions d’al":nf(a)+" al"}
+  if(m<1e-15){const e=Math.floor(Math.log10(m));return (m/10**e).toFixed(1).replace(".",",")+"×10"+sup(e)+" m"}
+  let u=U[0];for(const x of U)if(m>=x[0])u=x;return nf(m/u[0])+" "+u[1];
+}
+const col=s=>s<1e-12?"180,140,255":s<1e-6?"90,210,200":s<1e4?"111,209,138":s<1e10?"79,179,255":s<1e14?"255,207,90":s<1e24?"255,143,107":"232,237,247";
+const $=id=>document.getElementById(id),cv=$("c"),ctx=cv.getContext("2d");
+let size=0,v=Math.log10(1.7)+.25,dirn=0,tgt=null,last=performance.now();
+function resize(){const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;size=r.width;cv.width=r.width*d;cv.height=r.width*d;ctx.setTransform(d,0,0,d,0,0)}
+addEventListener("resize",resize);resize();
+$("chips").innerHTML=O.map((o,i)=>`<button data-i="${i}">${o[0]}</button>`).join("");
+function setDir(d){dirn=d;document.querySelectorAll("#go button").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.d===d))}
+$("go").addEventListener("click",e=>{const b=e.target.closest("button");if(b){tgt=null;setDir(+b.dataset.d)}});
+$("chips").addEventListener("click",e=>{const b=e.target.closest("button");if(b){tgt=Math.log10(O[+b.dataset.i][1])+.25;setDir(0)}});
+$("sl").addEventListener("input",e=>{v=+e.target.value;tgt=null;setDir(0)});
+function frame(now){
+  const dt=Math.min(.1,(now-last)/1e3);last=now;
+  if(tgt!==null){v+=(tgt-v)*Math.min(1,dt*4);if(Math.abs(tgt-v)<.003){v=tgt;tgt=null}}
+  else if(dirn){v+=dirn*.6*dt;if(v<=-36||v>=27.5){v=Math.max(-36,Math.min(27.5,v));setDir(0)}}
+  $("sl").value=v;draw();requestAnimationFrame(frame);
+}
+function draw(){
+  const W=size,c=W/2,s0=Math.pow(10,v);ctx.clearRect(0,0,W,W);
+  let f=0,best=1e9;O.forEach((o,i)=>{const e=Math.abs(Math.log10(o[1])-(v-.25));if(e<best){best=e;f=i}});
+  const vis=[];O.forEach((o,i)=>{const d=o[1]/s0*W;if(d>2.5&&d<1.6*W||i===f&&d<1.6*W)vis.push([o,d,i])});
+  for(let k=vis.length-1;k>=0;k--){const[o,d,i]=vis[k],rgb=col(o[1]),foc=i===f;
+    ctx.fillStyle="rgba("+rgb+",.05)";ctx.strokeStyle="rgba("+rgb+","+(foc?1:.6)+")";ctx.lineWidth=foc?3:1.5;
+    ctx.beginPath();ctx.arc(c,c,Math.max(d/2,1.5),0,7);ctx.fill();ctx.stroke()}
+  ctx.font="12.5px system-ui,sans-serif";ctx.textAlign="center";ctx.lineJoin="round";
+  vis.forEach(([o,d,i],j)=>{if(d<18&&i!==f)return;const a=-Math.PI/2+((j*.9)%2.4-1.2);
+    const x=Math.max(50,Math.min(W-50,c+d/2*Math.cos(a))),y=Math.max(16,Math.min(W-30,c+d/2*Math.sin(a)));
+    ctx.font=(i===f?"600 13.5px":"12.5px")+" system-ui,sans-serif";ctx.lineWidth=4;ctx.strokeStyle="#070d1a";ctx.strokeText(o[0],x,y);ctx.fillStyle=i===f?"#fff":"rgba(232,237,247,.8)";ctx.fillText(o[0],x,y)});
+  ctx.strokeStyle="rgba(255,255,255,.35)";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(c-6,c);ctx.lineTo(c+6,c);ctx.moveTo(c,c-6);ctx.lineTo(c,c+6);ctx.stroke();
+  const k=Math.floor(v),px=Math.pow(10,k-v)*W;
+  ctx.strokeStyle="#e8edf7";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(14,W-14);ctx.lineTo(14+px,W-14);ctx.stroke();
+  ctx.textAlign="left";ctx.font="12.5px system-ui,sans-serif";ctx.lineWidth=4;ctx.strokeStyle="#070d1a";const t="10"+sup(k)+" m";ctx.strokeText(t,14,W-22);ctx.fillStyle="#92a0ba";ctx.fillText(t,14,W-22);
+  $("fov").textContent="Champ de vision : "+len(s0);
+  const o=O[f];$("n").textContent=o[0]+" · "+len(o[1]);$("f").textContent=o[2];
+  if(f>0){const q=o[1]/O[f-1][1],r=q>=10?Math.round(Number(q.toPrecision(1))).toLocaleString("fr-FR"):q.toPrecision(1).replace(".",",");$("r").textContent="Environ "+r+" fois plus grand que : "+O[f-1][0].toLowerCase()+"."}else $("r").textContent="";
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
