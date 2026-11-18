@@ -2,7 +2,7 @@
 
 Site d’astronomie pour le club, centré sur **Chemillé-en-Anjou (Maine-et-Loire, France)**. Ouvrez `index.html` : c’est le menu qui mène à toutes les pages. Aucune installation n’est nécessaire.
 
-**Site en ligne :** `https://VOTRE-PSEUDO.github.io/club-astro/`
+**Site en ligne :** `https://ic3fr.github.io/
 (remplacez `VOTRE-PSEUDO` par votre nom d’utilisateur GitHub)
 
 ## Les pages
