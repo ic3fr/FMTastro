@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mission vers la Lune</title>
+<style>
+:root{--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba;--accent:#4fb3ff;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "Instrument Sans","Segoe UI",system-ui,sans-serif}
+main{max-width:760px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.6rem;margin:0 0 2px;font-weight:600;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:0 0 14px}
+canvas{display:block;width:100%;aspect-ratio:1;background:radial-gradient(circle at 50% 50%,#0d1830,var(--bg) 70%);border:1px solid var(--line);border-radius:12px}
+.hud{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:12px 0}
+.hud div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+.hud small{display:block;color:var(--muted);font-size:.8rem}
+.hud b{font-weight:600;font-variant-numeric:tabular-nums}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+button{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;cursor:pointer}
+button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+ol{list-style:none;margin:0;padding:0}
+li{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line);color:var(--muted)}
+li span:last-child{font-variant-numeric:tabular-nums;white-space:nowrap}
+li.done{color:var(--text)}
+li.done span:first-child::before{content:"✓ ";color:var(--accent)}
+p.note{color:var(--muted);font-size:.85rem;margin-top:14px}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 10px}
+.topbar a{color:var(--accent);text-decoration:none}
+#nuit{background:#e5281c;color:#000;border:1px solid #e5281c;border-radius:8px;padding:6px 12px;font:inherit;font-weight:600;cursor:pointer}
+#nuit:focus-visible{outline:2px solid #fff;outline-offset:2px}
+html[data-night] #nuit{background:#fff;border-color:#fff}
+html[data-night] body{filter:grayscale(1) brightness(.85)}
+html[data-night]::after{content:"";position:fixed;left:0;top:0;right:0;bottom:0;background:#f00;mix-blend-mode:multiply;pointer-events:none;z-index:2147483647}
+</style>
+</head>
+<body>
+<main>
+<div class="topbar"><a href="index.html">← Menu</a><button id="nuit" aria-pressed="false">Mode nuit</button></div>
+<h1>Mission vers la Lune</h1>
+<p class="sub" id="sub"></p>
+<canvas id="c" role="img" aria-label="Simulation du trajet d’une sonde de la Terre à l’orbite lunaire"></canvas>
+<div class="hud">
+<div><small>Phase</small><b id="h1"></b></div>
+<div><small>Date</small><b id="h2"></b></div>
+<div><small>Temps de mission</small><b id="h3"></b></div>
+<div><small>Vitesse</small><b id="h4"></b></div>
+<div><small id="l5">Altitude</small><b id="h5"></b></div>
+<div><small>Δv consommé</small><b id="h6"></b></div>
+</div>
+<div class="bar">
+<button id="pause">Pause</button>
+<button data-m="1" aria-pressed="true">×1</button>
+<button data-m="3" aria-pressed="false">×3</button>
+<button data-m="10" aria-pressed="false">×10</button>
+<button id="skip">Étape suivante</button>
+<button id="again">Rejouer</button>
+</div>
+<ol id="ev"></ol>
+<p class="note">La Lune est à sa position réelle au moment du départ. La trajectoire est un transfert économe d’environ 5 jours (les missions Apollo, plus rapides, mettaient environ 3 jours). Les orbites sont simplifiées (dans un seul plan) et les durées sont accélérées.</p>
+</main>
+<script>
+const D=Math.PI/180,TAU=2*Math.PI,$=id=>document.getElementById(id);
+const muE=398600.4,RE=6371,muM=4902.8,RM=1737.4,DM=384400,rpE=RE+300,rpM=RM+100,raM=RM+10000,NM=TAU/(27.321661*86400);
+function moonLon(ms){const T=(ms/864e5+2440587.5-2451545)/36525,S=x=>Math.sin(x*D);return(218.32+481267.881*T+6.29*S(135+477198.87*T)-1.27*S(259.3-413335.36*T)+.66*S(235.7+890534.22*T)+.21*S(269.9+954397.74*T)-.19*S(357.5+35999.05*T)-.11*S(186.5+966404*T))*D}
+const launch=Date.now(),L0=moonLon(launch);
+const aT=(rpE+DM)/2,eT=(DM-rpE)/(DM+rpE),tof=Math.PI*Math.sqrt(aT**3/muE);
+const dvTLI=Math.sqrt(muE*(2/rpE-1/aT))-Math.sqrt(muE/rpE);
+const vinf=Math.abs(DM*NM-Math.sqrt(muE*(2/DM-1/aT)));
+const aC=(rpM+raM)/2,eC=(raM-rpM)/(raM+rpM),vcap=Math.sqrt(muM*(2/rpM-1/aC));
+const dvLOI=Math.sqrt(vinf**2+2*muM/rpM)-vcap,dvCirc=vcap-Math.sqrt(muM/rpM);
+const Pl=TAU*Math.sqrt(rpE**3/muE),Pc=TAU*Math.sqrt(aC**3/muM),Pm=TAU*Math.sqrt(rpM**3/muM);
+const tB=2*Pl,tF=tB+tof,tM0=tF-86400,tC=tF+3*Pc,thp=L0+NM*tF-Math.PI;
+function kepler(M,e){let E=e>.8?Math.PI:M;for(let i=0;i<60;i++)E-=(E-e*Math.sin(E)-M)/(1-e*Math.cos(E));return E}
+const leo=t=>{const g=thp+TAU*(t-tB)/Pl;return[rpE*Math.cos(g),rpE*Math.sin(g)]};
+const transfer=t=>{const tau=t-tB,E=kepler(Math.sqrt(muE/aT**3)*tau,eT),nu=2*Math.atan2(Math.sqrt(1+eT)*Math.sin(E/2),Math.sqrt(1-eT)*Math.cos(E/2)),r=aT*(1-eT*Math.cos(E));return[r*Math.cos(thp+nu),r*Math.sin(thp+nu)]};
+const geo=t=>t<tB?leo(t):transfer(Math.min(t,tF));
+const moonAt=t=>[DM*Math.cos(L0+NM*t),DM*Math.sin(L0+NM*t)];
+function hyp(mu,rp,vi,t){const A=mu/(vi*vi),e=1+rp/A,M=Math.sqrt(mu/(A*A*A))*t;let H=Math.asinh(M/e);for(let i=0;i<40;i++)H-=(e*Math.sinh(H)-H-M)/(e*Math.cosh(H)-1);
+  const nu=2*Math.atan(Math.sqrt((e+1)/(e-1))*Math.tanh(H/2)),r=A*(e*Math.cosh(H)-1);return[r*Math.cos(nu),r*Math.sin(nu)]}
+const capture=u=>{const E=kepler((Math.sqrt(muM/aC**3)*u)%TAU,eC);return[aC*(Math.cos(E)-eC),aC*Math.sqrt(1-eC*eC)*Math.sin(E)]};
+const lastL=t=>{const g=TAU*t/Pm;return[rpM*Math.cos(g),rpM*Math.sin(g)]};
+const SG=[{t0:0,t1:tB,f:leo,n:"Orbite basse à 300 km"},{t0:tB,t1:Infinity,f:transfer,n:"Transfert vers la Lune"}];
+const SL=[{n:"Approche de la Lune",t0:tM0,t1:tF,f:t=>hyp(muM,rpM,vinf,t-tF)},{n:"Orbite de capture",t0:tF,t1:tC,f:t=>capture(t-tF)},{n:"Orbite finale à 100 km",t0:tC,t1:Infinity,span:Pm,f:t=>lastL(t-tC)}];
+const burns=[tB,tF,tC],bounds=[tB,tM0,tF,tC,tC+3*Pm];
+const rate=t=>t<tB?600:t<tM0?30000:t<tF?20000:t<tC?4000:1500;
+const fmtD=ms=>new Date(ms).toLocaleDateString("fr-FR",{day:"numeric",month:"short",year:"numeric"});
+$("sub").textContent="Départ : "+fmtD(launch)+" · arrivée : "+fmtD(launch+tF*1e3);
+const EV=[[0,"Lancement, orbite basse à 300 km"],[tB,"Injection vers la Lune (Δv "+dvTLI.toFixed(2)+" km/s)"],[tM0,"Entrée dans l’influence de la Lune"],[tF,"Freinage et capture (Δv "+dvLOI.toFixed(2)+" km/s)"],[tC,"Circularisation à 100 km (Δv "+dvCirc.toFixed(2)+" km/s)"]];
+$("ev").innerHTML=EV.map(e=>`<li><span>${e[1]}</span><span>${fmtD(launch+e[0]*1e3)}</span></li>`).join("");
+const lis=[...$("ev").children];
+const cv=$("c"),ctx=cv.getContext("2d");let size=0;
+function resize(){const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;size=r.width;cv.width=r.width*d;cv.height=r.width*d;ctx.setTransform(d,0,0,d,0,0)}
+addEventListener("resize",resize);resize();
+// Textures (photo de la Lune, carte de la Terre) avec repli stylisé
+const MI=new Image();MI.src="moon.jpg";let EBMP=null;const TI=new Image();
+TI.onload=()=>{try{const W=TI.naturalWidth,H=TI.naturalHeight,c0=document.createElement("canvas");c0.width=W;c0.height=H;const x0=c0.getContext("2d");x0.drawImage(TI,0,0);const T=x0.getImageData(0,0,W,H).data,N=420,b=document.createElement("canvas");b.width=b.height=N;const bx=b.getContext("2d"),im=bx.createImageData(N,N),px=im.data,p0=20*D,sp=Math.sin(p0),cp=Math.cos(p0),l0=10*D;let i=0;
+  for(let py=0;py<N;py++){const y=1-2*(py+.5)/N;for(let q=0;q<N;q++,i+=4){const x=2*(q+.5)/N-1,r2=x*x+y*y;if(r2>1){px[i+3]=0;continue}const cc=Math.sqrt(1-r2),sl=cc*sp+y*cp,lat=Math.asin(sl)/D,lon=(l0+Math.atan2(x,cp*cc-y*sp))/D,ld=((lon%360)+540)%360-180,o=4*(Math.min(H-1,Math.floor((90-lat)/180*H))*W+Math.min(W-1,Math.floor((ld+180)/360*W))),f=.45+.55*Math.pow(cc,.6);px[i]=T[o]*f;px[i+1]=T[o+1]*f;px[i+2]=T[o+2]*f;px[i+3]=255}}
+  bx.putImageData(im,0,0);EBMP=b}catch(e){EBMP=null}};TI.src="earth.jpg";
+let t=0,mult=1,paused=false,hold=0,flash=0,vr=1,lastScene=-1,last=performance.now();
+function dot(x,y,r,c){ctx.fillStyle=c;ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill()}
+function label(s,x,y,c){ctx.font="13px system-ui,sans-serif";ctx.fillStyle=c||"#e8edf7";ctx.textAlign=x>size*.75?"right":"left";ctx.fillText(s,x+(x>size*.75?-10:10),y+4)}
+function ring(x,y){if(flash>0){ctx.strokeStyle="rgba(255,155,61,"+(flash/.9)+")";ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(x,y,10+(.9-flash)*60,0,7);ctx.stroke()}}
+function moonDisc(x,y,r){ctx.save();ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.clip();
+  if(MI.complete&&MI.naturalWidth)ctx.drawImage(MI,x-r,y-r,2*r,2*r);else{ctx.fillStyle="#b9b5a6";ctx.fillRect(x-r,y-r,2*r,2*r)}
+  const g=ctx.createRadialGradient(x,y,r*.6,x,y,r);g.addColorStop(0,"rgba(0,0,0,0)");g.addColorStop(1,"rgba(0,0,0,.4)");ctx.fillStyle=g;ctx.fillRect(x-r,y-r,2*r,2*r);ctx.restore()}
+function path(f,a,b,P,n){ctx.beginPath();for(let i=0;i<=n;i++){const[x,y]=P(f(a+(b-a)*i/n));i?ctx.lineTo(x,y):ctx.moveTo(x,y)}}
+function drawGeo(dt){
+  const p=geo(t),target=Math.max(Math.hypot(...p)*1.3,t<tB?rpE*2.4:DM*1.22);
+  vr=lastScene===0?vr+(target-vr)*Math.min(1,dt*3):target;
+  const c=size/2,k=(size/2-14)/vr,P=q=>[c+q[0]*k,c-q[1]*k],rr=RE*k;
+  if(t>=tB){ctx.setLineDash([3,6]);ctx.strokeStyle="rgba(146,160,186,.45)";ctx.lineWidth=1;ctx.beginPath();ctx.arc(c,c,DM*k,0,TAU);ctx.stroke();
+    path(transfer,tB,tF,P,160);ctx.strokeStyle="rgba(232,237,247,.35)";ctx.stroke();ctx.setLineDash([])}
+  if(EBMP)ctx.drawImage(EBMP,c-rr,c-rr,2*rr,2*rr);else{const g=ctx.createRadialGradient(c,c,rr*.2,c,c,rr);g.addColorStop(0,"#3a86d4");g.addColorStop(1,"#1b4f8f");dot(c,c,rr,g)}
+  ctx.strokeStyle="rgba(120,190,255,.4)";ctx.lineWidth=2;ctx.beginPath();ctx.arc(c,c,rr+2,0,7);ctx.stroke();
+  for(const s of SG){if(s.t0>=t)continue;path(s.f,s.t0,Math.min(t,s.t1),P,240);ctx.strokeStyle=s.t1>t?"#fff":"rgba(232,237,247,.45)";ctx.lineWidth=s.t1>t?2:1.2;ctx.stroke()}
+  if(t>=tB){const[gx,gy]=P(moonAt(tF));ctx.strokeStyle="rgba(232,237,247,.6)";ctx.lineWidth=1;ctx.beginPath();ctx.arc(gx,gy,10,0,7);ctx.stroke()}
+  const m=moonAt(t),[mx,my]=P(m);moonDisc(mx,my,Math.max(5,RM*k));label("Lune",mx,my+16,"#e8edf7");
+  label("Terre",c+rr+6,c-rr-4,"#8fd0ff");
+  const[sx,sy]=P(p);dot(sx,sy,3.5,"#fff");ring(sx,sy);
+  const q=geo(t+1),dm=Math.hypot(p[0]-m[0],p[1]-m[1]);
+  $("h4").textContent=Math.hypot(q[0]-p[0],q[1]-p[1]).toFixed(2)+" km/s (par rapport à la Terre)";
+  $("l5").textContent="Altitude · distance à la Lune";
+  $("h5").textContent=Math.max(0,Math.hypot(...p)-RE).toLocaleString("fr-FR",{maximumFractionDigits:0})+" · "+dm.toLocaleString("fr-FR",{maximumFractionDigits:0})+" km";
+  return(t<tB?SG[0]:SG[1]).n;
+}
+function drawMoon(dt){
+  const cur=SL.find(s=>t>=s.t0&&t<s.t1)||SL[2],p=cur.f(t),isLast=cur===SL[2];
+  const target=Math.max(Math.hypot(...p)*1.3,isLast?rpM*2.6:raM*1.3);
+  vr=lastScene===1?vr+(target-vr)*Math.min(1,dt*6):target;
+  const c=size/2,k=(size/2-14)/vr,P=q=>[c+q[0]*k,c-q[1]*k];
+  moonDisc(c,c,RM*k);ctx.strokeStyle="rgba(255,255,255,.2)";ctx.lineWidth=1;ctx.beginPath();ctx.arc(c,c,RM*k,0,7);ctx.stroke();
+  for(const s of SL){if(s.t0>=t)continue;path(s.f,s.span?Math.max(s.t0,t-s.span):s.t0,Math.min(t,s.t1),P,240);ctx.strokeStyle=s===cur?"#fff":"rgba(232,237,247,.45)";ctx.lineWidth=s===cur?2:1.2;ctx.stroke()}
+  const[sx,sy]=P(p);dot(sx,sy,4,"#fff");ring(sx,sy);label("Lune",c+RM*k*.6,c+RM*k*.6+18,"rgba(255,255,255,.75)");
+  const q=cur.f(t+1);
+  $("h4").textContent=Math.hypot(q[0]-p[0],q[1]-p[1]).toFixed(2)+" km/s (par rapport à la Lune)";
+  $("l5").textContent="Altitude";
+  $("h5").textContent=Math.max(0,Math.hypot(...p)-RM).toLocaleString("fr-FR",{maximumFractionDigits:0})+" km";
+  return"Autour de la Lune · "+cur.n;
+}
+function frame(now){
+  const dt=Math.min(.1,(now-last)/1e3);last=now;
+  if(!paused){if(hold>0)hold-=dt;else{const ds=dt*rate(t)*mult,b=burns.find(b=>t<b&&t+ds>=b);if(b!==undefined){t=b;hold=.9;flash=.9}else t+=ds}}
+  if(flash>0)flash-=dt;
+  ctx.clearRect(0,0,size,size);
+  const scene=t<tM0?0:1,name=scene===0?drawGeo(dt):drawMoon(dt);lastScene=scene;
+  $("h1").textContent=name;
+  $("h2").textContent=new Date(launch+t*1e3).toLocaleString("fr-FR",{dateStyle:"medium",timeStyle:"short"});
+  const d=Math.floor(t/86400),h=Math.floor(t%86400/3600),m=Math.floor(t%3600/60);
+  $("h3").textContent="J+"+d+" j "+h+" h "+m+" min";
+  $("h6").textContent=((t>=tB?dvTLI:0)+(t>=tF?dvLOI:0)+(t>=tC?dvCirc:0)).toFixed(2)+" km/s";
+  EV.forEach((e,i)=>lis[i].classList.toggle("done",t>=e[0]));
+  requestAnimationFrame(frame);
+}
+$("pause").onclick=e=>{paused=!paused;e.target.textContent=paused?"Reprendre":"Pause"};
+document.querySelectorAll("button[data-m]").forEach(b=>b.onclick=()=>{mult=+b.dataset.m;document.querySelectorAll("button[data-m]").forEach(x=>x.setAttribute("aria-pressed",x===b))});
+$("skip").onclick=()=>{const b=bounds.find(b=>b>t+1);if(b!==undefined){t=b;if(burns.includes(b)){flash=.9;hold=.5}}};
+$("again").onclick=()=>{t=0;hold=0;flash=0;lastScene=-1;paused=false;$("pause").textContent="Pause"};
+requestAnimationFrame(frame);
+</script>
+<script>
+(function(){var K="astro-nuit",d=document.documentElement,b=document.getElementById("nuit");if(!b)return;
+try{if(localStorage.getItem(K)==="1")d.setAttribute("data-night","")}catch(e){}
+function set(on,save){on?d.setAttribute("data-night",""):d.removeAttribute("data-night");b.setAttribute("aria-pressed",on);b.textContent=on?"Mode jour":"Mode nuit";if(save)try{localStorage.setItem(K,on?"1":"0")}catch(e){}}
+b.onclick=function(){set(!d.hasAttribute("data-night"),true)};set(d.hasAttribute("data-night"),false);
+})();
+</script>
+</body>
+</html>
