@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Activité solaire</title>
+<style>
+:root{--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba;--accent:#4fb3ff;--ok:#6fd18a;--warn:#ffcf5a;--orange:#ff9b3d;--bad:#ff5d5d;color-scheme:dark;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "Instrument Sans","Segoe UI",system-ui,sans-serif}
+main{max-width:1000px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.7rem;margin:0;font-weight:600;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:2px 0 14px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(310px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.wide{grid-column:1/-1}
+h2{font-size:1.02rem;margin:0 0 8px;font-weight:600}
+small,.note{color:var(--muted);font-size:.85rem}
+.r{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px solid var(--line)}
+.r:last-child{border-bottom:0}.r span{color:var(--muted)}.r b{font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+.big{font-size:2rem;font-weight:600;line-height:1.15;margin:2px 0 4px}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.org{color:var(--orange)}.bad{color:var(--bad)}
+.badges{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.badges div{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px;text-align:center}
+.badges b{display:block;font-size:1.6rem;line-height:1.1}
+canvas{display:block;width:100%;height:120px}
+.lbl{display:flex;justify-content:space-between;color:var(--muted);font-size:.78rem;margin-top:2px}
+.sun{display:block;width:100%;max-width:420px;aspect-ratio:1;margin:0 auto 8px;border-radius:50%;background:#000;object-fit:cover}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px;justify-content:center}
+button{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;cursor:pointer}
+button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+table{width:100%;border-collapse:collapse}td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{color:var(--muted);font-weight:500;font-size:.85rem}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 10px}
+.topbar a{color:var(--accent);text-decoration:none}
+#nuit{background:#e5281c;color:#000;border:1px solid #e5281c;border-radius:8px;padding:6px 12px;font:inherit;font-weight:600;cursor:pointer}
+#nuit:focus-visible{outline:2px solid #fff;outline-offset:2px}
+html[data-night] #nuit{background:#fff;border-color:#fff}
+html[data-night] body{filter:grayscale(1) brightness(.85)}
+html[data-night]::after{content:"";position:fixed;left:0;top:0;right:0;bottom:0;background:#f00;mix-blend-mode:multiply;pointer-events:none;z-index:2147483647}
+</style>
+</head>
+<body>
+<main>
+<div class="topbar"><a href="index.html">← Menu</a><button id="nuit" aria-pressed="false">Mode nuit</button></div>
+<h1>Activité solaire</h1>
+<p class="sub">Données en direct du centre de météorologie spatiale américain (NOAA) et images de l’observatoire SDO (NASA). <span id="maj"></span></p>
+<noscript><p>JavaScript est désactivé : la page ne peut pas s’afficher.</p></noscript>
+<div class="grid">
+<section class="card wide" id="k-scale">Chargement…</section>
+<section class="card" id="k-img"><h2>☀ Le Soleil en ce moment</h2>
+<div class="bar" id="tabs"><button data-i="0" aria-pressed="true">Taches (lumière visible)</button><button data-i="1" aria-pressed="false">Couronne (193 Å)</button><button data-i="2" aria-pressed="false">Chromosphère (304 Å)</button></div>
+<img class="sun" id="sunimg" alt="Image actuelle du Soleil"><small id="imgnote">Images NASA / SDO, mises à jour toutes les quelques minutes.</small></section>
+<section class="card" id="k-kp">Chargement…</section>
+<section class="card" id="k-wind">Chargement…</section>
+<section class="card" id="k-xray">Chargement…</section>
+<section class="card" id="k-ssn">Chargement…</section>
+<section class="card" id="k-aur">Chargement…</section>
+<section class="card wide" id="k-gloss"><h2>📘 Comprendre</h2>
+<table>
+<tr><th>Indice Kp (0 à 9)</th><td>Mesure l’agitation du champ magnétique terrestre. De 0 à 3 : calme. 4 : agité. 5 ou plus : orage géomagnétique (échelle G1 à G5).</td></tr>
+<tr><th>Éruptions (rayons X)</th><td>Classées A, B, C, M et X, chaque lettre étant 10 fois plus intense que la précédente. Une éruption X peut perturber les radios sur la face éclairée de la Terre.</td></tr>
+<tr><th>Vent solaire</th><td>Flux de particules venu du Soleil. Au-delà de 600 km/s, il est rapide. Un champ Bz fortement négatif (sous −10 nT) favorise les aurores.</td></tr>
+<tr><th>Nombre de taches</th><td>Le Soleil suit un cycle d’environ 11 ans. La courbe lissée montre l’évolution du cycle 25 en cours.</td></tr>
+<tr><th>Flux radio F10.7</th><td>Émission du Soleil à 10,7 cm, un autre indicateur de son activité : environ 70 au minimum, 200 ou plus au maximum.</td></tr>
+<tr><th>Échelles NOAA</th><td>R : pannes radio, S : tempêtes de radiations, G : orages géomagnétiques. De 0 (rien) à 5 (extrême).</td></tr>
+</table></section>
+</div>
+<p class="note" style="margin-top:14px">Les données demandent une connexion Internet et se rafraîchissent toutes les 5 minutes. Les indications sur les aurores sont indicatives. Ne regardez jamais le Soleil directement sans filtre homologué.</p>
+</main>
+<script>
+const $=id=>document.getElementById(id),U="https://services.swpc.noaa.gov/";
+const J=async u=>{const c=new AbortController(),t=setTimeout(()=>c.abort(),12000);try{const r=await fetch(u,{signal:c.signal});if(!r.ok)throw new Error(r.status);return await r.json()}finally{clearTimeout(t)}};
+const tab=j=>Array.isArray(j)&&Array.isArray(j[0])?j.slice(1).map(r=>Object.fromEntries(j[0].map((h,i)=>[h,r[i]]))):j;
+const nm=x=>{const v=parseFloat(x);return isNaN(v)?null:v};
+const fmt=(x,n=0)=>x.toLocaleString("fr-FR",{maximumFractionDigits:n,minimumFractionDigits:n});
+const row=(a,b)=>`<div class="r"><span>${a}</span><b>${b}</b></div>`;
+const fail=(id,t)=>{$(id).innerHTML=`<h2>${t}</h2><p class="note">Données indisponibles pour le moment (connexion au serveur NOAA impossible).</p>`};
+const last=a=>{for(let i=a.length-1;i>=0;i--)if(a[i]!=null)return a[i];return null};
+const sub=(a,n)=>{const s=Math.max(1,Math.floor(a.length/n));return a.filter((_,i)=>i%s===0)};
+function chart(cv,series,o){
+  const dpr=window.devicePixelRatio||1,w=cv.clientWidth||320,h=o.h||120;cv.width=w*dpr;cv.height=h*dpr;const x=cv.getContext("2d");x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,w,h);
+  const ml=34,mt=6,mb=4,pw=w-ml-4,ph=h-mt-mb;let lo=o.min,hi=o.max;
+  if(lo==null||hi==null){const all=series.flatMap(s=>s.v.filter(v=>v!=null));lo=lo??Math.min(...all);hi=hi??Math.max(...all);if(hi===lo)hi=lo+1}
+  const f=o.log?Math.log10:v=>v,Y=v=>mt+ph-(f(v)-f(lo))/(f(hi)-f(lo))*ph;
+  x.font="11px system-ui,sans-serif";x.textAlign="right";x.lineWidth=1;
+  for(const[y,l] of o.lines||[]){const yy=Y(y);if(yy<mt-1||yy>mt+ph+1)continue;x.strokeStyle="rgba(146,160,186,.25)";x.beginPath();x.moveTo(ml,yy);x.lineTo(ml+pw,yy);x.stroke();x.fillStyle="#92a0ba";x.fillText(l,ml-4,yy+4)}
+  for(const s of series){const n=s.v.length;
+    if(s.col){const bw=pw/n;s.v.forEach((v,i)=>{if(v==null)return;x.globalAlpha=s.al&&s.al[i]!=null?s.al[i]:1;x.fillStyle=s.col(v);const y0=Y(lo),y1=Y(Math.max(lo,v));x.fillRect(ml+i*bw+1,y1,Math.max(1,bw-2),y0-y1)});x.globalAlpha=1}
+    else{x.strokeStyle=s.c;x.lineWidth=s.w||1.6;x.beginPath();let pen=false;s.v.forEach((v,i)=>{if(v==null||(o.log&&v<=0)){pen=false;return}const X=ml+i/(n-1||1)*pw;pen?x.lineTo(X,Y(v)):x.moveTo(X,Y(v));pen=true});x.stroke()}}
+}
+const kc=v=>v<4?"#6fd18a":v<5?"#ffcf5a":v<6?"#ff9b3d":"#ff5d5d";
+const tfmt=(s,o)=>{s=String(s);if(/^\d{4}-\d{2}$/.test(s))s+="-01";if(/^\d{4}-\d{2}-\d{2}$/.test(s))s+="T00:00:00";s=s.replace(" ","T").replace(/(\.\d+)?$/,"");if(!/Z$/.test(s))s+="Z";const d=new Date(s);return isNaN(d)?"":d.toLocaleString("fr-FR",o||{day:"numeric",month:"short"})};
+let KPNOW=null,KPMAX=null;
+async function loadScale(){const j=await J(U+"products/noaa-scales.json"),c=j["0"];if(!c)throw 0;
+  const col=n=>n>=4?"bad":n>=3?"org":n>=1?"warn":"ok",it=(k,t)=>{const n=+c[k].Scale||0;return`<div><small>${t}</small><b class="${col(n)}">${k}${n}</b><small>${c[k].Text||""}</small></div>`};
+  $("k-scale").innerHTML="<h2>🛰 Météo spatiale : situation actuelle</h2><div class=\"badges\">"+it("R","Pannes radio")+it("S","Radiations")+it("G","Orage géomagnétique")+"</div>"}
+async function loadKp(){const rows=tab(await J(U+"products/noaa-planetary-k-index-forecast.json")),v=rows.map(r=>nm(r.kp)),al=rows.map(r=>/pred/i.test(r.observed||"")?.45:1);
+  const obs=rows.map((r,i)=>/pred/i.test(r.observed||"")?null:v[i]),cur=last(obs),pr=v.filter((_,i)=>al[i]<1&&v[i]!=null);KPNOW=cur;KPMAX=pr.length?Math.max(...pr):cur;
+  $("k-kp").innerHTML=`<h2>🧲 Activité géomagnétique (Kp)</h2><p class="big ${cur>=5?"bad":cur>=4?"warn":"ok"}">Kp ${cur===null?"–":fmt(cur,1)}</p><small>${cur>=5?"Orage géomagnétique":cur>=4?"Champ agité":"Champ calme"}${pr.length?" · prévision max. : Kp "+fmt(Math.max(...pr),1):""}</small><canvas id="ckp" role="img" aria-label="Indice Kp passé et prévu"></canvas><div class="lbl"><span>${tfmt(rows[0].time_tag)}</span><span>aujourd’hui → prévision (pâle)</span><span>${tfmt(rows[rows.length-1].time_tag)}</span></div>`;
+  chart($("ckp"),[{v,col:kc,al}],{min:0,max:9,lines:[[3,"3"],[5,"5"],[7,"7"],[9,"9"]]})}
+async function loadWind(){const p=tab(await J(U+"products/solar-wind/plasma-1-day.json")),m=tab(await J(U+"products/solar-wind/mag-1-day.json"));
+  const sp=p.map(r=>nm(r.speed)),de=p.map(r=>nm(r.density)),bz=m.map(r=>nm(r.bz_gsm)),s0=last(sp),d0=last(de),b0=last(bz);
+  $("k-wind").innerHTML=`<h2>🌬 Vent solaire (dernières 24 h)</h2><p class="big ${s0>600?"org":"ok"}">${s0===null?"–":fmt(s0)+" km/s"}</p><small>${s0>600?"Vent rapide":s0>450?"Vent modéré":"Vent lent"}</small>`+row("Densité",d0===null?"–":fmt(d0,1)+" p/cm³")+row("Champ magnétique Bz",b0===null?"–":`<span class="${b0<-10?"bad":b0<-5?"warn":"ok"}">${fmt(b0,1)} nT</span>`)+`<canvas id="cw1" role="img" aria-label="Vitesse du vent solaire" style="height:90px"></canvas><canvas id="cw2" role="img" aria-label="Champ Bz" style="height:90px"></canvas><div class="lbl"><span>il y a 24 h</span><span>vitesse (haut) · Bz (bas)</span><span>maintenant</span></div>`;
+  chart($("cw1"),[{v:sub(sp,240),c:"#4fb3ff"}],{h:90,lines:[[400,"400"],[600,"600"]]});
+  chart($("cw2"),[{v:sub(bz,240),c:"#ffcf5a"}],{h:90,min:-20,max:20,lines:[[-10,"−10"],[0,"0"],[10,"10"]]})}
+const xc=f=>{if(!(f>0))return"–";const e=Math.floor(Math.log10(f)),i=Math.max(0,Math.min(4,e+8)),b=i===4?1e-4:i===0?1e-8:Math.pow(10,e);return"ABCMX"[i]+fmt(f/b,1)};
+async function loadXray(){const j=await J(U+"json/goes/primary/xrays-1-day.json");let a=j.filter(e=>(e.energy||"").includes("0.1-0.8"));if(!a.length)a=j;
+  const fl=a.map(e=>nm(e.flux??e.observed_flux)),f0=last(fl),mx=Math.max(...fl.filter(v=>v!=null)),cl=f=>f>=1e-4?"bad":f>=1e-5?"org":f>=1e-6?"warn":"ok";
+  $("k-xray").innerHTML=`<h2>💥 Éruptions (rayons X, 24 h)</h2><p class="big ${cl(f0)}">${xc(f0)}</p><small>Classe actuelle</small>`+row("Maximum des 24 h",`<span class="${cl(mx)}">${xc(mx)}</span>`)+`<canvas id="cx" role="img" aria-label="Flux de rayons X"></canvas><div class="lbl"><span>il y a 24 h</span><span>échelle logarithmique</span><span>maintenant</span></div>`;
+  chart($("cx"),[{v:sub(fl,300),c:"#ff9b3d"}],{min:1e-8,max:1e-3,log:true,lines:[[1e-7,"B"],[1e-6,"C"],[1e-5,"M"],[1e-4,"X"]]})}
+async function loadSsn(){const rows=await J(U+"json/solar-cycle/observed-solar-cycle-indices.json"),r=rows.slice(-160),ss=r.map(e=>nm(e.ssn)),sm=r.map(e=>nm(e.smoothed_ssn)),L=rows.filter(e=>nm(e.ssn)!==null).pop();
+  let f107=null;try{const f=await J(U+"products/summary/10cm-flux.json");f107=nm(f.Flux)}catch(e){}
+  $("k-ssn").innerHTML=`<h2>🔆 Taches solaires et cycle 25</h2><p class="big">${L?fmt(nm(L.ssn)):"–"}</p><small>Nombre de taches${L?" · "+tfmt(L["time-tag"]||L.time_tag,{month:"long",year:"numeric"}):""}</small>`+row("Flux radio F10.7",f107===null?"–":fmt(f107)+" sfu")+`<canvas id="cs" role="img" aria-label="Nombre de taches solaires sur 13 ans"></canvas><div class="lbl"><span>${tfmt(r[0]["time-tag"]||r[0].time_tag,{year:"numeric"})}</span><span>mensuel (gris) · lissé (jaune)</span><span>aujourd’hui</span></div>`;
+  chart($("cs"),[{v:ss,c:"#92a0ba",w:1},{v:sm,c:"#ffcf5a",w:2}],{min:0,lines:[[50,"50"],[100,"100"],[150,"150"],[200,"200"]]})}
+function aurora(){const k=Math.max(KPNOW??0,KPMAX??0),t=KPNOW===null?"Données Kp indisponibles.":k>=8?"Des aurores sont possibles jusqu’aux latitudes de Chemillé : regardez vers le nord, loin des lumières.":k>=7?"Des aurores sont possibles dans le nord de la France, très peu probables à Chemillé.":k>=5?"Aurores visibles en Écosse et en Scandinavie, pas à Chemillé.":"Aucune chance d’aurore à Chemillé.";
+  $("k-aur").innerHTML=`<h2>🌌 Aurores boréales à Chemillé</h2><p class="big ${k>=8?"bad":k>=7?"org":"ok"}">${KPNOW===null?"Indisponible":k>=8?"Possible":k>=7?"Peu probable":"Improbable"}</p><small>${t}</small>`+row("Kp actuel",KPNOW===null?"–":fmt(KPNOW,1))+row("Kp maximal prévu",KPMAX===null?"–":fmt(KPMAX,1))+`<p class="note" style="margin-bottom:0">Chemillé est à 47° N : il faut un orage géomagnétique majeur (Kp 8 ou 9, échelle G4 à G5).</p>`}
+async function loadAll(){
+  const jobs=[[loadScale,"k-scale","Météo spatiale"],[loadKp,"k-kp","🧲 Activité géomagnétique (Kp)"],[loadWind,"k-wind","🌬 Vent solaire"],[loadXray,"k-xray","💥 Éruptions"],[loadSsn,"k-ssn","🔆 Taches solaires"]];
+  await Promise.all(jobs.map(async([f,id,t])=>{try{await f()}catch(e){fail(id,t)}}));
+  aurora();$("maj").textContent="Mis à jour à "+new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})+".";
+}
+const IM=["HMIIC","0193","0304"],img=$("sunimg");
+function setImg(i){img.src="https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_"+IM[i]+".jpg?"+Math.floor(Date.now()/3e5)}
+img.onerror=()=>{$("imgnote").textContent="Image indisponible pour le moment."};
+$("tabs").addEventListener("click",e=>{const b=e.target.closest("button[data-i]");if(!b)return;document.querySelectorAll("#tabs button").forEach(x=>x.setAttribute("aria-pressed",x===b));setImg(+b.dataset.i)});
+setImg(0);loadAll();setInterval(()=>{loadAll();const a=document.querySelector("#tabs [aria-pressed=true]");setImg(+a.dataset.i)},3e5);
+addEventListener("resize",()=>{clearTimeout(window._rz);window._rz=setTimeout(loadAll,400)});
+</script>
+<script>
+(function(){var K="astro-nuit",d=document.documentElement,b=document.getElementById("nuit");if(!b)return;
+try{if(localStorage.getItem(K)==="1")d.setAttribute("data-night","")}catch(e){}
+function set(on,save){on?d.setAttribute("data-night",""):d.removeAttribute("data-night");b.setAttribute("aria-pressed",on);b.textContent=on?"Mode jour":"Mode nuit";if(save)try{localStorage.setItem(K,on?"1":"0")}catch(e){}}
+b.onclick=function(){set(!d.hasAttribute("data-night"),true)};set(d.hasAttribute("data-night"),false);
+})();
+</script>
+</body>
+</html>
