@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mission Orbite · le jeu</title>
+<style>
+:root{--bg:#070d1a;--panel:#101a2e;--line:#2a3a58;--text:#e8edf7;--muted:#92a0ba;--accent:#4fb3ff;--ok:#6fd18a;--bad:#ff6b5d;color-scheme:dark;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "Instrument Sans","Segoe UI",system-ui,sans-serif}
+main{max-width:900px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.7rem;margin:0;font-weight:600;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:2px 0 14px}
+.game{display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
+@media(min-width:800px){.game{grid-template-columns:400px 1fr}}
+canvas{display:block;width:100%;max-width:440px;aspect-ratio:1;margin:0 auto;border-radius:12px;border:1px solid var(--line)}
+.hud{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
+.hud div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 12px}
+.hud small{display:block;color:var(--muted);font-size:.78rem}
+.hud b{font-weight:600;font-variant-numeric:tabular-nums}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+h2{font-size:1.12rem;margin:4px 0 10px;font-weight:600;line-height:1.35}
+small,.note{color:var(--muted);font-size:.85rem}
+.opts{display:grid;gap:8px}
+.opts button{display:flex;gap:10px;text-align:left;align-items:flex-start;width:100%}
+.opts b{color:var(--accent);min-width:1.2em}
+button{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;cursor:pointer}
+button:hover:not(:disabled){border-color:var(--accent)}
+button:disabled{cursor:default}
+button.good{border-color:var(--ok);background:rgba(111,209,138,.14)}
+button.wrong{border-color:var(--bad);background:rgba(255,107,93,.14)}
+button.go{border-color:var(--accent);color:var(--accent);font-weight:600;margin-top:10px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.okk{color:var(--ok);margin:10px 0 0}.ko{color:var(--bad);margin:10px 0 0}
+ol#steps{list-style:none;margin:12px 0 0;padding:0}
+#steps li{display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);color:var(--muted);font-size:.9rem}
+#steps li.done{color:var(--text)}#steps li.done::before{content:"✓";color:var(--ok)}#steps li:not(.done)::before{content:"○";color:var(--muted)}
+#steps li.next{color:var(--accent)}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 10px}
+.topbar a{color:var(--accent);text-decoration:none}
+#nuit{background:#e5281c;color:#000;border:1px solid #e5281c;border-radius:8px;padding:6px 12px;font:inherit;font-weight:600;cursor:pointer}
+#nuit:focus-visible{outline:2px solid #fff;outline-offset:2px}
+html[data-night] #nuit{background:#fff;border-color:#fff}
+html[data-night] body{filter:grayscale(1) brightness(.85)}
+html[data-night]::after{content:"";position:fixed;left:0;top:0;right:0;bottom:0;background:#f00;mix-blend-mode:multiply;pointer-events:none;z-index:2147483647}
+</style>
+</head>
+<body>
+<main>
+<div class="topbar"><a href="index.html">← Menu</a><button id="nuit" aria-pressed="false">Mode nuit</button></div>
+<h1>Mission Orbite</h1>
+<p class="sub">Répondez juste pour faire avancer la fusée, étape après étape. Une seule erreur et elle explose ! <span id="rec"></span></p>
+<noscript><p>JavaScript est désactivé : le jeu ne peut pas s’afficher.</p></noscript>
+<div class="game">
+<div>
+<canvas id="c" role="img" aria-label="Fusée sur le pas de tir"></canvas>
+<div class="hud"><div><small>Étape</small><b id="h1"></b></div><div><small>Temps</small><b id="h2"></b></div><div><small>Altitude</small><b id="h3"></b></div><div><small>Vitesse</small><b id="h4"></b></div></div>
+</div>
+<div><section class="card" id="qbox"></section><ol id="steps"></ol></div>
+</div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const Q=[
+["Quelle planète est la plus proche du Soleil ?","Mercure",["Vénus","Mars","La Terre"],"Mercure orbite à environ 58 millions de km du Soleil."],
+["Combien y a-t-il de planètes dans le système solaire ?","8",["7","9","10"],"Depuis 2006, Pluton est classée planète naine : il reste huit planètes."],
+["Quelle planète est surnommée la planète rouge ?","Mars",["Vénus","Jupiter","Mercure"],"Son sol est riche en oxyde de fer, c’est-à-dire en rouille."],
+["Quelle est la plus grande planète du système solaire ?","Jupiter",["Saturne","Neptune","La Terre"],"Jupiter est environ 11 fois plus large que la Terre."],
+["Quelle planète est célèbre pour ses anneaux ?","Saturne",["Mars","Mercure","Vénus"],"Ses anneaux sont faits de glace d’eau et de roches."],
+["Qui a posé le pied sur la Lune en premier, en 1969 ?","Neil Armstrong",["Youri Gagarine","Buzz Aldrin","Alan Shepard"],"Neil Armstrong, de la mission Apollo 11, en juillet 1969."],
+["Qui fut le premier humain dans l’espace ?","Youri Gagarine",["Neil Armstrong","Alan Shepard","Valentina Terechkova"],"Youri Gagarine a fait un tour de la Terre le 12 avril 1961."],
+["Quel fut le premier satellite artificiel ?","Spoutnik 1",["Explorer 1","Hubble","Apollo 11"],"Spoutnik 1 a été lancé par l’URSS le 4 octobre 1957."],
+["Combien de temps la lumière du Soleil met-elle pour atteindre la Terre ?","Environ 8 minutes",["Environ 1 seconde","Environ 1 heure","Environ 1 jour"],"Le Soleil est à environ 150 millions de km, soit 8 minutes-lumière."],
+["Quelle est l’étoile la plus proche du Soleil ?","Proxima du Centaure",["Sirius","Bételgeuse","L’étoile Polaire"],"Proxima du Centaure est à environ 4,2 années-lumière."],
+["Comment s’appelle notre galaxie ?","La Voie lactée",["Andromède","Le Grand Nuage","La Spirale du Sud"],"Le Soleil y est l’une des centaines de milliards d’étoiles."],
+["Quelle grande galaxie spirale est la plus proche de la Voie lactée ?","Andromède",["Le Tourbillon","Le Sombrero","Le Moulinet"],"Andromède est à environ 2,5 millions d’années-lumière."],
+["Combien de temps la Terre met-elle pour faire le tour du Soleil ?","Environ 365 jours",["24 heures","Environ 30 jours","Environ 10 ans"],"C’est ce qu’on appelle une année."],
+["Quelle force maintient la Lune en orbite autour de la Terre ?","La gravité",["Le magnétisme","Le vent solaire","La pression de l’air"],"L’attraction de la Terre courbe sans cesse la trajectoire de la Lune."],
+["Quelle est la température de surface du Soleil ?","Environ 5 500 °C",["Environ 100 °C","Environ 50 000 °C","Environ 1 million de °C"],"Le cœur dépasse 15 millions de degrés, mais la surface « seulement » 5 500 °C."],
+["Quel est le plus grand satellite naturel de Jupiter ?","Ganymède",["Io","Europe","Callisto"],"Ganymède est plus grand que la planète Mercure."],
+["Quelle planète tourne presque couchée sur le côté ?","Uranus",["Neptune","Mars","Saturne"],"Son axe est incliné d’environ 98°."],
+["Quelle est la planète la plus chaude du système solaire ?","Vénus",["Mercure","Mars","Jupiter"],"L’effet de serre y porte la surface à environ 465 °C, plus chaud que Mercure."],
+["Qu’est-ce qu’une année-lumière ?","Une distance",["Une durée","Une vitesse","Une masse"],"C’est la distance parcourue par la lumière en un an, environ 9 460 milliards de km."],
+["Quel télescope spatial a été lancé fin 2021 ?","James Webb",["Hubble","Kepler","Gaia"],"Le télescope James Webb observe dans l’infrarouge."],
+["Quel rover a atterri sur Mars en 2021 ?","Persévérance",["Curiosity","Spirit","Sojourner"],"Persévérance s’est posé dans le cratère Jezero le 18 février 2021."],
+["À quelle phase de la Lune peut avoir lieu une éclipse de Lune ?","À la pleine Lune",["À la nouvelle Lune","Au premier quartier","Au dernier quartier"],"La Terre doit se trouver entre le Soleil et la Lune."],
+["Quel gaz est le plus abondant dans le Soleil ?","L’hydrogène",["L’oxygène","Le fer","L’azote"],"Le Soleil est fait d’environ 73 % d’hydrogène et 25 % d’hélium."],
+["Quelle vitesse faut-il atteindre pour se mettre en orbite basse autour de la Terre ?","Environ 7,8 km/s",["Environ 100 km/h","Environ 1 km/s","Environ 100 km/s"],"C’est près de 28 000 km/h : une fusée monte surtout pour aller très vite de côté."],
+["À partir de quelle altitude considère-t-on que l’espace commence ?","100 km",["10 km","1 000 km","400 000 km"],"C’est la ligne de Kármán."],
+["Quel est le plus haut volcan du système solaire ?","Olympus Mons",["Le Mont Etna","Le Mauna Kea","Le Vésuve"],"Olympus Mons, sur Mars, culmine à environ 22 km."],
+["Dans quelle constellation se trouve l’étoile Polaire ?","La Petite Ourse",["La Grande Ourse","Orion","Cassiopée"],"Elle marque presque exactement le nord céleste."],
+["Quelle est l’étoile la plus brillante du ciel nocturne ?","Sirius",["La Polaire","Bételgeuse","Antarès"],"Sirius, dans le Grand Chien, est la plus brillante vue de la Terre."],
+["Combien de temps dure environ un cycle d’activité solaire ?","Environ 11 ans",["Environ 1 an","Environ 100 ans","Environ 1 mois"],"Le nombre de taches solaires augmente puis diminue sur environ 11 ans."],
+["Que provoquent les particules solaires qui frappent notre atmosphère près des pôles ?","Des aurores polaires",["Des éclipses","Des marées","Des étoiles filantes"],"Elles excitent les gaz de la haute atmosphère, qui émettent de la lumière."],
+["À quoi sert la coiffe d’une fusée ?","À protéger le satellite dans l’atmosphère",["À stocker le carburant","À freiner la fusée","À guider la fusée"],"Elle est larguée dès que l’air est assez rare."],
+["Pourquoi une fusée a-t-elle plusieurs étages ?","Pour larguer la masse devenue inutile",["Pour avoir plus de couleurs","Pour refroidir les moteurs","Pour mieux voir de loin"],"Chaque étage vide est abandonné : la fusée devient plus légère et accélère mieux."],
+["Quelle agence a lancé la sonde Rosetta vers une comète ?","L’ESA",["La NASA","Roscosmos","La JAXA"],"Rosetta a déposé l’atterrisseur Philae sur la comète Tchouri en 2014."],
+["Depuis quel site en Guyane l’Europe lance-t-elle ses fusées ?","Kourou",["Cayenne","Saint-Laurent","Sinnamary"],"Proche de l’équateur, le site profite de la rotation de la Terre."],
+["Comment s’appelle la famille de fusées européennes lancées depuis Kourou ?","Ariane",["Falcon","Saturn","Atlas"],"Ariane 5 puis Ariane 6 lancent satellites et sondes."],
+["Quel programme américain a envoyé des humains sur la Lune ?","Apollo",["Gemini","Mercury","Voyager"],"Entre 1969 et 1972, six missions Apollo ont posé douze astronautes sur la Lune."],
+["Quelle planète possède la Grande Tache Rouge ?","Jupiter",["Mars","Saturne","Neptune"],"C’est une tempête géante, plus large que la Terre."],
+["Combien la Terre possède-t-elle de satellites naturels ?","Un",["Deux","Aucun","Quatre"],"La Lune est notre seul satellite naturel."],
+["Qu’est-ce qui provoque les marées sur Terre ?","L’attraction de la Lune et du Soleil",["Le vent","La rotation de la Lune","Les volcans sous-marins"],"La Lune est la principale responsable."],
+["Qu’est-ce qu’un trou noir ?","Une région d’où même la lumière ne s’échappe pas",["Une étoile éteinte et froide","Un trou dans une planète","Un nuage de gaz sombre"],"Sa gravité y est si forte que la vitesse de libération dépasse celle de la lumière."],
+["Combien de temps dure environ un voyage vers Mars avec une trajectoire économe ?","Environ 7 à 9 mois",["Environ 3 jours","Environ 3 semaines","Environ 5 ans"],"La fenêtre de tir revient tous les 26 mois."],
+["Quelle sonde est entrée dans l’espace interstellaire en 2012 ?","Voyager 1",["Pioneer 10","Cassini","New Horizons"],"Voyager 1, lancée en 1977, a franchi l’héliopause en août 2012."],
+["Quel astronome a découvert les quatre grandes lunes de Jupiter en 1610 ?","Galilée",["Copernic","Kepler","Newton"],"Io, Europe, Ganymède et Callisto s’appellent les lunes galiléennes."],
+["Quelle planète naine se trouve dans la ceinture d’astéroïdes ?","Cérès",["Pluton","Éris","Makémaké"],"Cérès mesure environ 940 km de diamètre."],
+["Qu’est-ce que l’unité astronomique ?","La distance moyenne Terre-Soleil",["La distance Terre-Lune","La taille du Soleil","La vitesse de la lumière"],"Elle vaut environ 150 millions de km."]];
+const PH=[
+{n:"Compte à rebours",dur:3.2,alt:0,v:0,met:-10},
+{n:"Mise à feu des moteurs",dur:2.6,alt:0,v:0,met:0},
+{n:"Décollage",dur:3.6,alt:1.5,v:.12,met:12},
+{n:"Max Q (pression maximale)",dur:3,alt:12,v:.45,met:70},
+{n:"Séparation du 1er étage",dur:3.6,alt:70,v:2.5,met:160},
+{n:"Allumage du 2e étage",dur:3,alt:95,v:3.6,met:200},
+{n:"Ligne de Kármán et coiffe larguée",dur:3.6,alt:110,v:5.2,met:215},
+{n:"Mise en orbite",dur:4.6,alt:400,v:7.66,met:540}];
+const SAVE="astro-jeu-fusee";let REC={best:0,wins:0};
+try{REC=Object.assign(REC,JSON.parse(localStorage.getItem(SAVE)||"{}"))}catch(e){}
+const saveRec=()=>{try{localStorage.setItem(SAVE,JSON.stringify(REC))}catch(e){}$("rec").textContent="Record : "+REC.best+"/8 étapes · missions réussies : "+REC.wins};
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const used=new Set();
+function pick(n){let pool=Q.map((_,i)=>i).filter(i=>!used.has(i));if(pool.length<n){used.clear();pool=Q.map((_,i)=>i)}shuffle(pool);const r=pool.slice(0,n);r.forEach(i=>used.add(i));return r.map(i=>Q[i])}
+// Canvas
+const cv=$("c"),ctx=cv.getContext("2d"),MI=new Image();MI.src="moon.jpg";let W=0,H=0,u=1;
+function resize(){const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;W=r.width;H=r.height;cv.width=W*d;cv.height=H*d;ctx.setTransform(d,0,0,d,0,0);u=W/380}
+addEventListener("resize",resize);resize();
+const STARS=Array.from({length:140},()=>({x:Math.random(),y:Math.random(),r:Math.random()*1.6+.6,f:Math.random()*3+1,p:Math.random()*6,z:Math.random()*.05+.01}));
+const CLOUDS=Array.from({length:16},(_,i)=>({a:1.2+i*.75+Math.random()*.5,x:Math.random(),s:.8+Math.random()*1.2}));
+const SK=[[0,[126,194,242],[217,239,255]],[10,[63,143,214],[158,211,245]],[40,[20,48,95],[58,111,176]],[80,[5,10,28],[15,42,85]],[120,[0,0,0],[3,8,20]]];
+function skyAt(a){if(a>=120)return[SK[4][1],SK[4][2]];for(let i=0;i<4;i++)if(a<=SK[i+1][0]){const f=(a-SK[i][0])/(SK[i+1][0]-SK[i][0]),m=(p,q)=>p.map((v,j)=>Math.round(v+(q[j]-v)*f));return[m(SK[i][1],SK[i+1][1]),m(SK[i][2],SK[i+1][2])]}}
+// État
+let S,Qs,cur,locked=false;
+function newGame(sc){S={phase:0,alt:0,vel:0,met:-10,cdn:null,thrust:0,blue:false,s1:true,fair:true,satShow:false,sat:null,dead:false,hidden:false,anim:null,busy:false,shake:0,flash:0,vapor:0,scroll:0,parts:[],debris:[],booster:null,halves:null,deadT:0,actShown:false,won:false};Qs=pick(8);saveRec();renderSteps();showQ();$("c").setAttribute("aria-label","Fusée sur le pas de tir");if(sc)cv.scrollIntoView({behavior:"smooth",block:"nearest"})}
+function renderSteps(){$("steps").innerHTML=PH.map((p,i)=>`<li class="${i<S.phase?"done":i===S.phase&&!S.dead&&!S.won?"next":""}">${p.n}</li>`).join("")}
+function showQ(scroll){const q=Qs[S.phase];cur={q,opts:shuffle([[q[1],1],...q[2].map(x=>[x,0])])};
+  $("qbox").innerHTML=`<small>Question ${S.phase+1} sur 8 · étape à débloquer : ${PH[S.phase].n}</small><h2>${q[0]}</h2><div class="opts">${cur.opts.map((o,i)=>`<button data-i="${i}"><b>${"ABCD"[i]}</b><span>${o[0]}</span></button>`).join("")}</div><div id="fb" aria-live="polite"></div><div id="act"></div>`;locked=false;if(scroll)$("qbox").scrollIntoView({behavior:"smooth",block:"nearest"})}
+$("qbox").addEventListener("click",e=>{const b=e.target.closest(".opts button");if(b)answer(+b.dataset.i);const g=e.target.closest("button.go");if(g)g.onclick&&0});
+function answer(i){if(locked||S.busy||S.dead||S.won)return;locked=true;const ok=cur.opts[i][1]===1,bs=document.querySelectorAll(".opts button");
+  bs.forEach((b,j)=>{b.disabled=true;if(cur.opts[j][1])b.classList.add("good");else if(j===i)b.classList.add("wrong")});
+  if(ok){$("fb").innerHTML=`<p class="okk">✔ Bonne réponse ! ${cur.q[3]}</p>`;startPhase(S.phase)}
+  else{$("fb").innerHTML=`<p class="ko">✖ Raté ! La bonne réponse était : <b>${cur.q[1]}</b>. ${cur.q[3]}</p>`;explode()}}
+function actBtn(txt,fn){$("act").innerHTML=`<button class="go" id="go">${txt}</button>`;$("go").onclick=fn;$("go").focus({preventScroll:true})}
+// Phases
+function startPhase(k){cv.scrollIntoView({behavior:"smooth",block:"nearest"});S.busy=true;S.anim={k,t:0,dur:PH[k].dur,from:{alt:S.alt,v:S.vel,met:S.met}};$("c").setAttribute("aria-label","Fusée : "+PH[k].n)}
+function addParts(n,f){for(let i=0;i<n;i++)S.parts.push(f(i))}
+function sepBooster(){S.s1=false;S.booster={x:W/2,y:rbNow,vx:(Math.random()-.5)*30*u,vy:20*u,rot:0,vr:(Math.random()-.5)*1.2}}
+function sepFairing(){S.fair=false;S.satShow=true;S.halves=[-1,1].map(s=>({x:W/2,y:rbNow-112*u,vx:s*70*u,vy:-10*u,rot:0,vr:s*1.6,s}))}
+function deploySat(){S.satShow=false;S.sat={x:W/2,y:rbNow-106*u,vy:-26*u,open:0}}
+function endPhase(k){
+  if(k===7){S.won=true;S.thrust=0;REC.wins++;REC.best=8;saveRec();renderSteps();$("fb").innerHTML+=`<p class="okk"><b>🎉 Mission accomplie !</b> Votre satellite est en orbite à 400 km, à 7,7 km/s.</p>`;actBtn("Nouvelle mission",newGame);return}
+  REC.best=Math.max(REC.best,S.phase);saveRec();renderSteps();actBtn("Question suivante →",()=>showQ(true))}
+function explode(){cv.scrollIntoView({behavior:"smooth",block:"nearest"});S.dead=true;S.busy=true;S.hidden=true;S.flash=1;S.shake=1;S.anim=null;S.thrust=0;REC.best=Math.max(REC.best,S.phase);saveRec();renderSteps();
+  const cx=W/2,cy=rbNow-(S.s1?55:25)*u;
+  addParts(150,()=>{const a=Math.random()*6.283,s=(30+Math.random()*240)*u;return{x:cx,y:cy,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.6+Math.random()*.9,max:1.5,r:(3+Math.random()*7)*u,k:"f"}});
+  addParts(26,()=>({x:cx,y:cy,vx:(Math.random()-.5)*90*u,vy:(Math.random()-.5)*90*u,life:2,max:2,r:(8+Math.random()*10)*u,k:"s"}));
+  S.debris=Array.from({length:16},()=>({x:cx,y:cy,vx:(Math.random()-.5)*260*u,vy:-Math.random()*200*u,rot:Math.random()*6,vr:(Math.random()-.5)*10,w:(3+Math.random()*9)*u,h:(4+Math.random()*14)*u,c:Math.random()<.5?"#e6e9f0":"#d9342b"}));
+  $("c").setAttribute("aria-label","La fusée a explosé")}
+// Mise à jour
+let rbNow=0;
+const ease=f=>f*f*(3-2*f);
+function update(dt){
+  S.scroll+=S.thrust*(60+S.vel*220)*dt;
+  if(S.anim){const a=S.anim,k=a.k;a.t+=dt;const f=Math.min(1,a.t/a.dur),e=k===2?f*f:ease(f),P=PH[k];
+    S.alt=a.from.alt+(P.alt-a.from.alt)*e;S.vel=a.from.v+(P.v-a.from.v)*e;S.met=a.from.met+(P.met-a.from.met)*e;
+    if(k===0)S.cdn=Math.max(0,Math.ceil(10*(1-f)));
+    if(k===1){S.thrust=Math.min(1,f*1.6);S.shake=.25+.4*f}
+    if(k===2){S.thrust=1;S.shake=Math.max(.15,.65-f)}
+    if(k===3)S.vapor=Math.sin(Math.PI*f);
+    if(k===4&&!a.d&&f>.3){a.d=1;sepBooster()}
+    if(k===5)S.blue=true;
+    if(k===6&&!a.d&&f>.35){a.d=1;sepFairing()}
+    if(k===7){if(!a.d&&f>.45){a.d=1;deploySat()}S.thrust=f<.6?1:Math.max(0,1-(f-.6)/.2)}
+    if(f>=1){S.anim=null;S.busy=false;S.phase=k+1;S.cdn=null;S.vapor=0;endPhase(k)}}
+  else if(!S.dead)S.shake=Math.max(0,S.shake-dt*.8);
+  if(S.flash>0)S.flash-=dt*1.6;if(S.dead&&S.shake>0)S.shake=Math.max(0,S.shake-dt*.9);
+  // particules de l’échappement
+  if(S.thrust>.1&&!S.dead){const g0=S.alt*40*u,pad=S.alt<4;addParts(pad?3:1,()=>({x:W/2+(Math.random()-.5)*10*u,y:rbNow+(S.s1?4:-66)*u,vx:(Math.random()-.5)*(pad?160:40)*u,vy:(60+Math.random()*120)*u,life:.5+Math.random()*.6,max:1.1,r:(3+Math.random()*5)*u,k:pad?"s":"e"}))}
+  for(const p of S.parts){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;if(p.k==="f"){p.vx*=.97;p.vy*=.97}if(p.k==="s")p.r+=dt*8*u}
+  S.parts=S.parts.filter(p=>p.life>0);
+  for(const d of S.debris){d.x+=d.vx*dt;d.y+=d.vy*dt;d.vy+=(S.alt<100?300:30)*u*dt;d.rot+=d.vr*dt}
+  S.debris=S.debris.filter(d=>d.y<H+60);
+  if(S.booster){const b=S.booster;b.vy+=140*u*dt;b.x+=b.vx*dt;b.y+=b.vy*dt;b.rot+=b.vr*dt;if(b.y>H+160*u)S.booster=null}
+  if(S.halves){for(const h of S.halves){h.x+=h.vx*dt;h.y+=h.vy*dt;h.vy+=60*u*dt;h.rot+=h.vr*dt}S.halves=S.halves.filter(h=>h.x>-60&&h.x<W+60&&h.y<H+60);if(!S.halves.length)S.halves=null}
+  if(S.sat){S.sat.y+=S.sat.vy*dt;S.sat.open=Math.min(1,S.sat.open+dt/2);if(S.sat.y<-60)S.sat={...S.sat,y:-60,vy:0}}
+  if(S.dead){S.deadT+=dt;if(S.deadT>2.3&&!S.actShown){S.actShown=true;S.busy=false;actBtn("Recommencer la mission",newGame)}}
+}
+// Dessin
+function cloud(x,y,s){ctx.fillStyle="rgba(255,255,255,.85)";for(const[dx,dy,r] of [[0,0,16],[18,-6,20],[40,0,15],[20,6,14]]){ctx.beginPath();ctx.arc(x+dx*s,y+dy*s,r*s,0,7);ctx.fill()}}
+function flame(y0,len,blue){const l=len*(.85+Math.random()*.3)*u,w=(blue?7:10)*u;const g=ctx.createLinearGradient(0,y0,0,y0+l);g.addColorStop(0,blue?"#e8f6ff":"#fffbe6");g.addColorStop(.35,blue?"#7cc4ff":"#ffb627");g.addColorStop(1,blue?"rgba(79,179,255,0)":"rgba(255,80,20,0)");ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(-w,y0);ctx.quadraticCurveTo(-w*.9,y0+l*.5,0,y0+l);ctx.quadraticCurveTo(w*.9,y0+l*.5,w,y0);ctx.closePath();ctx.fill()}
+function stage1(){ctx.fillStyle="#f3f5f9";ctx.fillRect(-13,-70,26,70);ctx.fillStyle="#222b3d";ctx.fillRect(-13,-52,26,7);ctx.fillStyle="#d9342b";ctx.beginPath();ctx.moveTo(-13,-20);ctx.lineTo(-25,2);ctx.lineTo(-13,0);ctx.closePath();ctx.moveTo(13,-20);ctx.lineTo(25,2);ctx.lineTo(13,0);ctx.closePath();ctx.fill();ctx.fillStyle="#5b6578";ctx.beginPath();ctx.moveTo(-7,0);ctx.lineTo(7,0);ctx.lineTo(10,8);ctx.lineTo(-10,8);ctx.closePath();ctx.fill()}
+function halfFairing(s){ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(s*10,0);ctx.quadraticCurveTo(s*10,-20,0,-30);ctx.closePath();ctx.fillStyle="#cfd5df";ctx.fill()}
+function satellite(open){ctx.fillStyle="#d9b24a";ctx.fillRect(-6,-12,12,12);ctx.fillStyle="#2a4f9e";const w=4+open*14;ctx.fillRect(-6-w,-9,w,6);ctx.fillRect(6,-9,w,6);ctx.fillStyle="#e8edf7";ctx.fillRect(-1,-18,2,6)}
+function draw(){
+  const t=performance.now()/1000;let sx=0,sy=0;if(S.shake>0){sx=(Math.random()-.5)*S.shake*8*u;sy=(Math.random()-.5)*S.shake*8*u}
+  ctx.save();ctx.translate(sx,sy);
+  const[top,bot]=skyAt(S.alt),g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,"rgb("+top+")");g.addColorStop(1,"rgb("+bot+")");ctx.fillStyle=g;ctx.fillRect(-12,-12,W+24,H+24);
+  const sa=Math.max(0,Math.min(1,(S.alt-30)/70));
+  if(sa>0){ctx.fillStyle="#fff";for(const s of STARS){ctx.globalAlpha=sa*(.4+.6*Math.abs(Math.sin(t*s.f+s.p)));ctx.fillRect(s.x*W,(((s.y*H+S.scroll*s.z)%H)+H)%H,s.r,s.r)}ctx.globalAlpha=1}
+  if(S.alt>150){const a=Math.min(1,(S.alt-150)/150),mr=9*u;ctx.save();ctx.globalAlpha=a;ctx.beginPath();ctx.arc(W*.82,H*.16,mr,0,7);ctx.clip();if(MI.complete&&MI.naturalWidth)ctx.drawImage(MI,W*.82-mr,H*.16-mr,2*mr,2*mr);else{ctx.fillStyle="#c9c5b6";ctx.fillRect(W*.82-mr,H*.16-mr,2*mr,2*mr)}ctx.restore();ctx.globalAlpha=1}
+  if(S.alt>25){const f=Math.min(1,(S.alt-25)/375),R=W*1.9,tp=H*(1.03-.36*f),cx=W/2,cyy=tp+R;const eg=ctx.createRadialGradient(cx,cyy,R*.6,cx,cyy,R);eg.addColorStop(0,"#0b2a5a");eg.addColorStop(.85,"#1f67b5");eg.addColorStop(1,"#6fb7ff");ctx.fillStyle=eg;ctx.beginPath();ctx.arc(cx,cyy,R,0,7);ctx.fill();ctx.strokeStyle="rgba(140,200,255,.55)";ctx.lineWidth=3*u;ctx.beginPath();ctx.arc(cx,cyy,R+1,0,7);ctx.stroke();ctx.fillStyle="rgba(255,255,255,.18)";for(let i=0;i<7;i++){ctx.beginPath();ctx.ellipse(cx+(i-3)*W*.17+Math.sin(i*5)*20,tp+22*u+(i%3)*14*u,34*u,4*u,0,0,7);ctx.fill()}}
+  const g0=S.alt*40*u,cy2=Math.max(0,g0-.24*H),yS=a=>H*.8-a*40*u+cy2;rbNow=yS(S.alt);const rb=rbNow;
+  if(S.alt<16)for(const c of CLOUDS){const y=yS(c.a);if(y>-40&&y<H+40)cloud(c.x*W,y,c.s*u)}
+  const gy=yS(0);
+  if(gy<H+60){ctx.fillStyle="#244f2e";ctx.fillRect(-12,gy,W+24,H);ctx.fillStyle="#3b7a45";ctx.fillRect(-12,gy,W+24,6*u);ctx.fillStyle="#9aa3b2";ctx.fillRect(W/2-62*u,gy-4*u,124*u,8*u);ctx.strokeStyle="#6b7487";ctx.lineWidth=2*u;const tx=W/2-52*u;ctx.strokeRect(tx-6*u,gy-150*u,12*u,150*u);ctx.beginPath();for(let i=0;i<6;i++){ctx.moveTo(tx-6*u,gy-i*25*u);ctx.lineTo(tx+6*u,gy-(i+1)*25*u)}ctx.stroke();ctx.fillStyle="#ff6b5d";ctx.fillRect(tx-6*u,gy-152*u,12*u,3*u)}
+  if(S.vel>.03&&S.thrust>0){ctx.strokeStyle="rgba(255,255,255,.28)";ctx.lineWidth=1;const n=14;ctx.beginPath();for(let i=0;i<n;i++){const x=((i*97)%100)/100*W,y=(((i*61)%100)/100*H+S.scroll*(1+i%3*.5))%H;if(Math.abs(x-W/2)<30*u)continue;ctx.moveTo(x,y);ctx.lineTo(x,y+(14+S.vel*8)*u)}ctx.stroke()}
+  for(const p of S.parts){if(p.k==="f")continue;ctx.globalAlpha=Math.max(0,p.life/p.max)*(p.k==="s"?.5:.55);ctx.fillStyle=p.k==="s"?"#d8dde6":"#ffd9a0";ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fill()}ctx.globalAlpha=1;
+  if(S.booster){const b=S.booster;ctx.save();ctx.translate(b.x,b.y);ctx.rotate(b.rot);ctx.scale(u,u);stage1();ctx.restore()}
+  if(S.halves)for(const h of S.halves){ctx.save();ctx.translate(h.x,h.y);ctx.rotate(h.rot);ctx.scale(u,u);halfFairing(h.s);ctx.restore()}
+  if(S.sat){const s=S.sat;ctx.save();ctx.translate(s.x,s.y);ctx.scale(u,u);satellite(s.open);ctx.restore()}
+  if(!S.hidden){ctx.save();ctx.translate(W/2+(S.shake>0?(Math.random()-.5)*S.shake*3*u:0),rb);ctx.scale(u,u);
+    if(S.thrust>0.02){const l=S.thrust*(S.s1?46:30);if(S.s1)flame(8,l,false);else flame(-70,l,S.blue)}
+    if(S.s1)stage1();
+    ctx.fillStyle="#e6e9f0";ctx.fillRect(-10,-100,20,30);ctx.fillStyle="#222b3d";ctx.fillRect(-10,-74,20,4);
+    if(S.fair){ctx.fillStyle="#cfd5df";ctx.beginPath();ctx.moveTo(-10,-100);ctx.quadraticCurveTo(-10,-120,0,-132);ctx.quadraticCurveTo(10,-120,10,-100);ctx.closePath();ctx.fill();ctx.fillStyle="#222b3d";ctx.fillRect(-10,-102,20,3)}
+    else if(S.satShow){ctx.save();ctx.translate(0,-100);satellite(0);ctx.restore()}
+    if(S.vapor>.05){ctx.strokeStyle="rgba(255,255,255,"+S.vapor*.7+")";ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(0,-98,26+S.vapor*10,9,0,0,7);ctx.stroke();ctx.beginPath();ctx.ellipse(0,-98,40+S.vapor*16,14,0,0,7);ctx.stroke()}
+    ctx.restore()}
+  for(const d of S.debris){ctx.save();ctx.translate(d.x,d.y);ctx.rotate(d.rot);ctx.fillStyle=d.c;ctx.fillRect(-d.w/2,-d.h/2,d.w,d.h);ctx.restore()}
+  for(const p of S.parts){if(p.k!=="f")continue;const a=Math.max(0,p.life/p.max);ctx.globalAlpha=Math.min(1,a*1.4);ctx.fillStyle=a>.6?"#fff3b0":a>.3?"#ffb627":"#ff5a1f";ctx.beginPath();ctx.arc(p.x,p.y,p.r*(.5+a),0,7);ctx.fill()}ctx.globalAlpha=1;
+  if(S.cdn!==null&&S.anim&&S.anim.k===0){ctx.fillStyle="rgba(255,255,255,.92)";ctx.font="700 "+64*u+"px system-ui,sans-serif";ctx.textAlign="center";ctx.lineWidth=5*u;ctx.strokeStyle="rgba(5,10,22,.75)";ctx.strokeText(S.cdn,W/2,H*.3);ctx.fillText(S.cdn,W/2,H*.3);ctx.font="600 "+15*u+"px system-ui,sans-serif";ctx.lineWidth=4*u;ctx.strokeText("Compte à rebours",W/2,H*.3+26*u);ctx.fillText("Compte à rebours",W/2,H*.3+26*u)}
+  if(S.phase===0&&!S.anim&&!S.dead){ctx.fillStyle="rgba(255,255,255,.85)";ctx.font="600 "+14*u+"px system-ui,sans-serif";ctx.textAlign="center";ctx.lineWidth=4*u;ctx.strokeStyle="rgba(5,10,22,.75)";ctx.strokeText("Sur le pas de tir",W/2,H*.12);ctx.fillText("Sur le pas de tir",W/2,H*.12)}
+  if(S.dead){ctx.fillStyle="rgba(255,107,93,.95)";ctx.font="700 "+30*u+"px system-ui,sans-serif";ctx.textAlign="center";ctx.lineWidth=4*u;ctx.strokeStyle="rgba(5,10,22,.75)";ctx.strokeText("ÉCHEC",W/2,H*.2);ctx.fillText("ÉCHEC",W/2,H*.2)}
+  if(S.won){ctx.fillStyle="rgba(111,209,138,.95)";ctx.font="700 "+26*u+"px system-ui,sans-serif";ctx.textAlign="center";ctx.lineWidth=4*u;ctx.strokeStyle="rgba(5,10,22,.75)";ctx.strokeText("EN ORBITE !",W/2,H*.2);ctx.fillText("EN ORBITE !",W/2,H*.2)}
+  ctx.restore();
+  if(S.flash>0){ctx.fillStyle="rgba(255,255,255,"+Math.min(1,S.flash)*.85+")";ctx.fillRect(0,0,W,H)}
+}
+const alts=a=>a<1?Math.round(a*1000).toLocaleString("fr-FR")+" m":(a<100?a.toFixed(1):Math.round(a)).toString().replace(".",",")+" km";
+function hud(){
+  $("h1").textContent=S.dead?"Échec : explosion":S.won?"Orbite atteinte":S.anim?PH[S.anim.k].n:(S.phase?"En attente : "+PH[S.phase-1].n:"Sur le pas de tir");
+  const m=S.met,a=Math.abs(Math.round(m));$("h2").textContent=(m<0?"T − ":"T + ")+String(Math.floor(a/60)).padStart(2,"0")+":"+String(a%60).padStart(2,"0");
+  $("h3").textContent=alts(S.alt);$("h4").textContent=S.vel<1?Math.round(S.vel*1000).toLocaleString("fr-FR")+" m/s":S.vel.toFixed(2).replace(".",",")+" km/s"}
+let last=performance.now();
+function frame(now){const dt=Math.min(.05,(now-last)/1e3);last=now;update(dt);draw();hud();requestAnimationFrame(frame)}
+addEventListener("keydown",e=>{const i="1234".indexOf(e.key);if(i>=0&&document.querySelector(".opts button:not(:disabled)"))answer(i)});
+newGame();requestAnimationFrame(frame);
+</script>
+<script>
+(function(){var K="astro-nuit",d=document.documentElement,b=document.getElementById("nuit");if(!b)return;
+try{if(localStorage.getItem(K)==="1")d.setAttribute("data-night","")}catch(e){}
+function set(on,save){on?d.setAttribute("data-night",""):d.removeAttribute("data-night");b.setAttribute("aria-pressed",on);b.textContent=on?"Mode jour":"Mode nuit";if(save)try{localStorage.setItem(K,on?"1":"0")}catch(e){}}
+b.onclick=function(){set(!d.hasAttribute("data-night"),true)};set(d.hasAttribute("data-night"),false);
+})();
+</script>
+</body>
+</html>
