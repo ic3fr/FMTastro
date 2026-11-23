@@ -22,7 +22,9 @@ button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .scroll{overflow-x:auto;border-radius:10px;border:1px solid var(--line);background:#050a16}
 #cs{display:block}
-#cm{display:block;width:100%;max-width:560px;aspect-ratio:1;margin:0 auto;border-radius:10px;border:1px solid var(--line);background:radial-gradient(circle,#0d1830,#050a16 75%)}
+#mapbox{position:relative;width:100%;max-width:560px;aspect-ratio:1;margin:0 auto;border-radius:10px;border:1px solid var(--line);overflow:hidden;background:radial-gradient(circle,#0d1830,#050a16 75%)}
+#mapbox iframe{position:absolute;left:50%;top:50%;border:0;pointer-events:none;transform-origin:center;display:none}
+#cm{position:absolute;left:0;top:0;width:100%;height:100%;display:block;background:none}
 .tw{overflow-x:auto;margin-top:10px}
 table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;min-width:560px}
 th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
@@ -41,8 +43,13 @@ html[data-night]::after{content:"";position:fixed;left:0;top:0;right:0;bottom:0;
 <main>
 <div class="topbar"><a href="index.html">← Menu</a><button id="nuit" aria-pressed="false">Mode nuit</button></div>
 <h1>Tailles et distances</h1>
-<p class="sub">La Terre comme référence, puis tout le système solaire ramené à l’échelle d’une promenade : 1 m = 37 000 km.</p>
+<p class="sub">La Terre comme référence, puis tout le système solaire ramené à l’échelle d’un objet de votre choix.</p>
 <noscript><p>JavaScript est désactivé : la page ne peut pas s’afficher.</p></noscript>
+
+<section class="card"><h2>Choisissez l’échelle</h2>
+<p><small>La Terre devient un objet du quotidien : tout le reste du système solaire suit, avec les mêmes proportions.</small></p>
+<div class="ctl" id="sel"><button data-o="0" aria-pressed="true">Ballon (34 cm)</button><button data-o="1" aria-pressed="false">Ballon de basket</button><button data-o="2" aria-pressed="false">Balle de tennis</button><button data-o="3" aria-pressed="false">Balle de golf</button><button data-o="4" aria-pressed="false">Bille</button></div>
+</section>
 
 <section class="card">
 <h2>1 · La taille des astres, la Terre comme référence</h2>
@@ -50,30 +57,36 @@ html[data-night]::after{content:"";position:fixed;left:0;top:0;right:0;bottom:0;
 <div class="ctl"><label>Zoom <input type="range" id="zoom" min="0" max="100" value="72" aria-label="Zoom"></label>
 <button data-z="2.5" id="zall">Tout voir</button><button data-z="14">Planètes</button><button data-z="40">Terre</button></div>
 <div class="scroll" id="sc"><canvas id="cs" role="img" aria-label="Taille comparée du Soleil, des planètes et de la Lune"></canvas></div>
+<p id="sum1" class="note" style="margin-top:10px"></p>
 <div class="tw"><table id="tsize"></table></div>
 </section>
 
 <section class="card">
-<h2>2 · Les distances à l’échelle : 1 m = 37 000 km</h2>
-<p>À cette échelle, la Terre mesure 34 cm (un ballon) et la Lune 9 cm, à 10,4 m d’elle. Le Soleil mesure 37,6 m. Posons le Soleil à <b>Chemillé</b> : les planètes se retrouvent sur la carte, aux vraies distances et dans leur direction du jour. Un signal lumineux part du Soleil : à cette échelle, il avance comme un cycliste, à 29 km/h.</p>
-<div class="ctl" id="views"><button data-v="8" aria-pressed="false">Jusqu’à Mars</button><button data-v="25" aria-pressed="false">Jusqu’à Jupiter</button><button data-v="130" aria-pressed="true">Jusqu’à Neptune</button></div>
-<canvas id="cm" role="img" aria-label="Carte autour de Chemillé montrant les orbites des planètes à l’échelle 1 m pour 37 000 km"></canvas>
+<h2 id="h2b">2 · Les distances à l’échelle</h2>
+<p id="intro2"></p>
+<div class="ctl" id="views"><button data-v="0" aria-pressed="false">Jusqu’à Mars</button><button data-v="1" aria-pressed="false">Jusqu’à Jupiter</button><button data-v="2" aria-pressed="true">Jusqu’à Neptune</button></div>
+<div id="mapbox"><iframe id="gm" title="Carte Google de la région de Chemillé" tabindex="-1" aria-hidden="true" referrerpolicy="no-referrer-when-downgrade"></iframe><canvas id="cm" role="img" aria-label="Carte autour de Chemillé montrant les orbites des planètes à l’échelle 1 m pour 37 000 km"></canvas></div>
+<div class="ctl" id="gctl"><button data-g="none" aria-pressed="true">Sans carte Google</button><button data-g="k" aria-pressed="false">Satellite</button><button data-g="p" aria-pressed="false">Terrain</button></div>
+<div class="ctl"><label>Transparence de la carte <input type="range" id="gtr" min="0" max="95" value="40" aria-label="Transparence de la carte Google"></label><label>Zoom <input type="range" id="gzm" min="0" max="100" value="25" aria-label="Zoom de la carte"> <b id="gzv">×1</b></label></div>
+<small id="gnote">Le fond Google Maps demande une connexion Internet. Son échelle suit le zoom de la carte, mais l’alignement reste approximatif. Carte © Google.</small>
+<small id="gstat" style="display:none;margin-top:4px"></small>
 <div class="ctl" id="speeds"><button data-s="60" aria-pressed="false">1 min/s</button><button data-s="600" aria-pressed="true">10 min/s</button><button data-s="3600" aria-pressed="false">1 h/s</button><button id="replay">Rejouer</button><b id="clock"></b></div>
 <small>Orientation de la carte choisie arbitrairement : la direction d’une planète est son angle réel autour du Soleil aujourd’hui. Les villes sont à leur place, vues depuis Chemillé.</small>
+<small id="mapnote" style="display:block;margin-top:4px"></small>
 <div class="tw"><table id="tdist"></table></div>
 </section>
 <p class="note">Valeurs moyennes arrondies. Positions des planètes calculées pour la date du jour avec les éléments orbitaux du JPL (précision d’environ un degré).</p>
 </main>
 <script>
-const $=id=>document.getElementById(id),TAU=Math.PI*2,SC=37000,AU=149597870.7,C=299792.458;
+const $=id=>document.getElementById(id),TAU=Math.PI*2,AU=149597870.7,C=299792.458;let SC=37000,KMS=0;
 const fmt=(x,n=0)=>x.toLocaleString("fr-FR",{maximumFractionDigits:n,minimumFractionDigits:n});
-const lenM=m=>m<1?(m*100>=10?fmt(m*100)+" cm":fmt(m*100,1)+" cm"):m<1000?fmt(m,m<100?1:0)+" m":fmt(m/1000,m<1e4?2:1)+" km";
+const lenM=m=>m<.01?fmt(m*1000,m*1000<10?1:0)+" mm":m<1?(m*100>=10?fmt(m*100)+" cm":fmt(m*100,1)+" cm"):m<1000?fmt(m,m<100?1:0)+" m":fmt(m/1000,m<1e4?2:1)+" km";
 const dur=s=>s<60?fmt(s,s<10?1:0)+" s":s<3600?Math.floor(s/60)+" min "+String(Math.round(s%60)).padStart(2,"0")+" s":Math.floor(s/3600)+" h "+String(Math.round((s%3600)/60)).padStart(2,"0");
 // Astres : nom, diamètre (km), couleur de repère, demi-grand axe (UA) pour les planètes
 const B=[["Soleil",1392700,"#ffcf5a"],["Mercure",4879,"#b8b2a7",.38709927],["Vénus",12104,"#e8c98a",.72333566],["Terre",12742,"#4fb3ff",1.00000261],["Lune",3474.8,"#d8d4c4"],["Mars",6779,"#e2704f",1.52371034],["Jupiter",139820,"#d9b48f",5.202887],["Saturne",116460,"#e6d39e",9.53667594],["Uranus",50724,"#9fe0e6",19.18916464],["Neptune",49244,"#6f8cff",30.06992276]];
 const DE=12742;
 // Images
-const MI=new Image();MI.src="moon.jpg";let EB=null;const TI=new Image();
+const MI=new Image();MI.src="moon.jpg";const SI=new Image(),MR=new Image();SI.src="sun.png";MR.src="mars.png";SI.onload=MR.onload=()=>drawSizes();let EB=null;const TI=new Image();
 TI.onload=()=>{try{const W=TI.naturalWidth,H=TI.naturalHeight,c0=document.createElement("canvas");c0.width=W;c0.height=H;const x0=c0.getContext("2d");x0.drawImage(TI,0,0);const T=x0.getImageData(0,0,W,H).data,N=300,b=document.createElement("canvas");b.width=b.height=N;const bx=b.getContext("2d"),im=bx.createImageData(N,N),px=im.data,D=Math.PI/180,sp=Math.sin(20*D),cp=Math.cos(20*D);let i=0;
   for(let py=0;py<N;py++){const y=1-2*(py+.5)/N;for(let q=0;q<N;q++,i+=4){const x=2*(q+.5)/N-1,r2=x*x+y*y;if(r2>1){px[i+3]=0;continue}const cc=Math.sqrt(1-r2),sl=cc*sp+y*cp,lat=Math.asin(sl)/D,lon=(10*D+Math.atan2(x,cp*cc-y*sp))/D,ld=((lon%360)+540)%360-180,o=4*(Math.min(H-1,Math.floor((90-lat)/180*H))*W+Math.min(W-1,Math.floor((ld+180)/360*W))),f=.5+.5*Math.pow(cc,.6);px[i]=T[o]*f;px[i+1]=T[o+1]*f;px[i+2]=T[o+2]*f;px[i+3]=255}}
   bx.putImageData(im,0,0);EB=b;drawSizes()}catch(e){EB=null}};TI.src="earth.jpg";MI.onload=()=>drawSizes();
@@ -87,11 +100,12 @@ function bands(x,y,r,list){ctx.fillStyle=list[0][0];ctx.fillRect(x-r,y-r,2*r,2*r
 function ring(x,y,r,front){ctx.save();ctx.translate(x,y);ctx.rotate(-.3);ctx.scale(1,.3);if(front){ctx.beginPath();ctx.rect(-3*r,0,6*r,3*r);ctx.clip()}
   ctx.beginPath();ctx.arc(0,0,2.27*r,0,TAU);ctx.arc(0,0,1.24*r,0,TAU,true);ctx.fillStyle="rgba(214,196,150,.85)";ctx.fill("evenodd");ctx.beginPath();ctx.arc(0,0,1.9*r,0,TAU);ctx.arc(0,0,1.84*r,0,TAU,true);ctx.fillStyle="rgba(40,30,20,.55)";ctx.fill("evenodd");ctx.restore()}
 function drawBody(n,x,y,r){
-  if(n==="Soleil"){const g=ctx.createRadialGradient(x,y,r*.9,x,y,r*1.12);g.addColorStop(0,"rgba(255,170,40,.5)");g.addColorStop(1,"rgba(255,170,40,0)");ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r*1.12,0,7);ctx.fill();sphere(x,y,r,()=>plain(x,y,r,"#fff3b0","#ff9a1f"))}
+  if(n==="Soleil"){const g=ctx.createRadialGradient(x,y,r*.9,x,y,r*1.12);g.addColorStop(0,"rgba(255,170,40,.5)");g.addColorStop(1,"rgba(255,170,40,0)");ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r*1.12,0,7);ctx.fill();sphere(x,y,r,()=>{if(SI.complete&&SI.naturalWidth)ctx.drawImage(SI,x-r,y-r,2*r,2*r);else plain(x,y,r,"#fff3b0","#ff9a1f")})}
   else if(n==="Terre")sphere(x,y,r,()=>{if(EB)ctx.drawImage(EB,x-r,y-r,2*r,2*r);else plain(x,y,r,"#4a9bea","#1b4f8f")});
   else if(n==="Lune")sphere(x,y,r,()=>{if(MI.complete&&MI.naturalWidth)ctx.drawImage(MI,x-r,y-r,2*r,2*r);else plain(x,y,r,"#d8d4c4","#7a776c")});
   else if(n==="Jupiter")sphere(x,y,r,()=>bands(x,y,r,BANDS.Jupiter));
   else if(n==="Saturne"){ring(x,y,r,false);sphere(x,y,r,()=>bands(x,y,r,BANDS.Saturne));ring(x,y,r,true)}
+  else if(n==="Mars")sphere(x,y,r,()=>{if(MR.complete&&MR.naturalWidth)ctx.drawImage(MR,x-r,y-r,2*r,2*r);else plain(x,y,r,"#e8805a","#8a3d22")});
   else{const c={Mercure:["#cfcac0","#6f6b63"],"Vénus":["#f2dca6","#a98a4e"],Mars:["#e8805a","#8a3d22"],Uranus:["#c2f0f2","#4e9fa6"],Neptune:["#8fa6ff","#2b3f9e"]}[n];sphere(x,y,r,()=>plain(x,y,r,c[0],c[1]))}
 }
 function drawSizes(){
@@ -107,23 +121,22 @@ function scrollTo(name){let x=14;for(const b of B){const z=zoomPx(),w=Math.max(b
 $("zoom").addEventListener("input",()=>{drawSizes()});
 document.querySelectorAll("button[data-z]").forEach(b=>b.onclick=()=>{$("zoom").value=Math.round(Math.log(+b.dataset.z/2)/Math.log(20)*100);drawSizes();scrollTo(b.dataset.z==="2.5"?"Soleil":"Terre")});
 // Tableau des tailles
-$("tsize").innerHTML="<tr><th>Astre</th><th>Diamètre</th><th>× Terre</th><th>Volume (Terres)</th><th>À l’échelle</th></tr>"+B.map(b=>{const r=b[1]/DE,v=r**3;return`<tr><td>${b[0]}</td><td>${fmt(b[1])} km</td><td>${fmt(r,r<1?2:1)}</td><td>${v>=1000?fmt(v,0):v<1?fmt(v,3):fmt(v,v<10?1:0)}</td><td>${lenM(b[1]/SC)}</td></tr>`}).join("");
+function buildSizes(){$("tsize").innerHTML="<tr><th>Astre</th><th>Diamètre</th><th>× Terre</th><th>Volume (Terres)</th><th>À l’échelle</th></tr>"+B.map(b=>{const r=b[1]/DE,v=r**3;return`<tr><td>${b[0]}</td><td>${fmt(b[1])} km</td><td>${fmt(r,r<1?2:1)}</td><td>${v>=1000?fmt(v,0):v<1?fmt(v,3):fmt(v,v<10?1:0)}</td><td>${lenM(b[1]/SC)}</td></tr>`}).join("");}
 // 2 · Distances
 const EL={Mercure:[.38709927,.00000037,.20563593,.00001906,7.00497902,-.00594749,252.25032350,149472.67411175,77.45779628,.16047689,48.33076593,-.12534081],"Vénus":[.72333566,.0000039,.00677672,-.00004107,3.39467605,-.0007889,181.9790995,58517.81538729,131.60246718,.00268329,76.67984255,-.27769418],Terre:[1.00000261,.00000562,.01671123,-.00004392,-.00001531,-.01294668,100.46457166,35999.37244981,102.93768193,.32327364,0,0],Mars:[1.52371034,.00001847,.0933941,.00007882,1.84969142,-.00813131,-4.55343205,19140.30268499,-23.94362959,.44441088,49.55953891,-.29257343],Jupiter:[5.202887,-.00011607,.04838624,-.00013253,1.30439695,-.00183714,34.39644051,3034.74612775,14.72847983,.21252668,100.47390909,.20469106],Saturne:[9.53667594,-.0012506,.05386179,-.00050991,2.48599187,.00193609,49.95424423,1222.49362201,92.59887831,-.41897216,113.66242448,-.28867794],Uranus:[19.18916464,-.00196176,.04725744,-.00004397,.77263783,-.00242939,313.23810451,428.48202785,170.9542763,.40805281,74.01692503,.0424058],Neptune:[30.06992276,.00026291,.00859048,.00005105,1.77004347,.00035372,-55.12002969,218.45945325,44.96476227,-.32241464,131.78422574,-.00508664]};
 function pos(el,T){const D=Math.PI/180,[a0,da,e0,de,I0,dI,L0,dL,w0,dw,O0,dO]=el,a=a0+da*T,e=e0+de*T,w=w0+dw*T,om=(w-(O0+dO*T))*D,O=(O0+dO*T)*D;let M=(((L0+dL*T-w)%360)+540)%360-180;M*=D;let E=M+e*Math.sin(M);for(let i=0;i<8;i++)E=M+e*Math.sin(E);
   const xp=a*(Math.cos(E)-e),yp=a*Math.sqrt(1-e*e)*Math.sin(E),co=Math.cos(om),so=Math.sin(om),cO=Math.cos(O),sO=Math.sin(O),cI=Math.cos((I0+dI*T)*D);return[(co*cO-so*sO*cI)*xp+(-so*cO-co*sO*cI)*yp,(co*sO+so*cO*cI)*xp+(-so*sO+co*cO*cI)*yp]}
 const TOWNS=[["Cholet",47.0594,-.8786],["Angers",47.4784,-.5632],["Saumur",47.26,-.077],["Nantes",47.2184,-1.5536],["Tours",47.3941,.6848],["Le Mans",48.0061,.1996],["Rennes",48.1173,-1.6778],["Poitiers",46.5802,.3404],["Niort",46.3237,-.4588],["La Roche-sur-Yon",46.6705,-1.4269],["Laval",48.0698,-.77],["La Rochelle",46.1603,-1.1511],["Châtellerault",46.8167,.54],["Bressuire",46.84,-.49],["Saint-Nazaire",47.2733,-2.2139],["Ancenis",47.3667,-1.1833],["Segré",47.6833,-.8667],["Château-Gontier",47.829,-.704],["Beaupréau",47.2,-.9833],["Vihiers",47.1442,-.5311],["Doué-la-Fontaine",47.192,-.276],["Thouars",46.976,-.215],["Chinon",47.167,.24],["Fontenay-le-Comte",46.4667,-.8]];
 const LAT0=47.2167,LON0=-.7333,TK=TOWNS.map(t=>{const dx=(t[2]-LON0)*111.32*Math.cos(LAT0*Math.PI/180),dy=(t[1]-LAT0)*110.57;return{n:t[0],x:dx,y:dy,d:Math.hypot(dx,dy)}});
-const T=(Date.now()/864e5+2440587.5-2451545)/36525,PL=B.filter(b=>b[3]).map(b=>{const p=pos(EL[b[0]],T),r=Math.hypot(...p);return{n:b[0],c:b[2],a:b[3],km:b[3]*AU/SC/1000,rk:r*AU/SC/1000,ang:Math.atan2(p[1],p[0])}});
-const KMS=C/SC/1000; // km de carte par seconde de lumière
-let view=130,rate=600,tl=0,last=performance.now(),hit={};
+const T=(Date.now()/864e5+2440587.5-2451545)/36525,PL=B.filter(b=>b[3]).map(b=>{const p=pos(EL[b[0]],T),r=Math.hypot(...p);return{n:b[0],c:b[2],a:b[3],r,km:0,rk:0,ang:Math.atan2(p[1],p[0])}});
+let view=130,view0=130,mag=1,gmode="none",gtr=.4,gtimer=null,vi=2,rate=600,tl=0,last=performance.now(),hit={};
 const cm=$("cm"),cx2=cm.getContext("2d");let S2=0;
 function rs(){const r=cm.getBoundingClientRect(),d=window.devicePixelRatio||1;S2=r.width;cm.width=r.width*d;cm.height=r.width*d;cx2.setTransform(d,0,0,d,0,0)}
-addEventListener("resize",()=>{rs();drawSizes()});rs();
+addEventListener("resize",()=>{rs();drawSizes();sched()});rs();
 function nice(v){const p=Math.pow(10,Math.floor(Math.log10(v))),f=v/p;return(f>=5?5:f>=2?2:1)*p}
 function drawMap(){
   const W=S2,c=W/2,R=c-14,k=R/view,x=cx2;x.clearRect(0,0,W,W);x.font="11.5px system-ui,sans-serif";x.textAlign="left";
-  for(const p of PL){const r=p.km*k;if(r>R)continue;x.strokeStyle="rgba(146,160,186,.35)";x.lineWidth=1;x.beginPath();x.arc(c,c,r,0,7);x.stroke()}
+  for(const p of PL){const r=p.km*k;if(r>R)continue;x.strokeStyle=gmode==="none"?"rgba(146,160,186,.35)":"rgba(255,255,255,.75)";x.lineWidth=gmode==="none"?1:1.5;x.beginPath();x.arc(c,c,r,0,7);x.stroke()}
   for(const t of TK){if(t.d>view*.97)continue;const X=c+t.x*k,Y=c-t.y*k;x.fillStyle="#92a0ba";x.beginPath();x.arc(X,Y,2.5,0,7);x.fill();x.lineWidth=3;x.strokeStyle="rgba(5,10,22,.85)";x.strokeText(t.n,X+5,Y+4);x.fillStyle="#b9c4da";x.fillText(t.n,X+5,Y+4)}
   const lr=tl*KMS;
   if(lr>0){x.strokeStyle="rgba(255,226,140,.95)";x.lineWidth=2;x.shadowColor="#ffd34d";x.shadowBlur=10;x.beginPath();x.arc(c,c,Math.min(lr,view*2)*k,0,7);x.stroke();x.shadowBlur=0}
@@ -132,22 +145,43 @@ function drawMap(){
   for(const p of PL){const r=p.rk*k;if(r>R)continue;const X=c+Math.cos(p.ang)*r,Y=c-Math.sin(p.ang)*r,rr=Math.max(3,Math.min(8,p.km*0+4+Math.log10(B.find(b=>b[0]===p.n)[1]/DE+.5)*3));
     x.fillStyle=p.c;x.beginPath();x.arc(X,Y,rr,0,7);x.fill();if(p.n==="Terre"){x.strokeStyle="#fff";x.lineWidth=1.5;x.beginPath();x.arc(X,Y,rr+3,0,7);x.stroke()}
     if(r>34||(view<=25&&r>14)){const lab=p.n+(hit[p.n]?" · "+dur(hit[p.n]):""),left=X>W*.68;x.textAlign=left?"right":"left";const tx=left?X-rr-5:X+rr+5;x.lineWidth=3;x.strokeStyle="rgba(5,10,22,.85)";x.strokeText(lab,tx,Y+4);x.fillStyle=hit[p.n]?"#ffe9a8":"#fff";x.fillText(lab,tx,Y+4);x.textAlign="left"}}
-  const sb=nice(view/3);x.strokeStyle="#e8edf7";x.lineWidth=2;x.beginPath();x.moveTo(14,W-14);x.lineTo(14+sb*k,W-14);x.stroke();x.fillStyle="#92a0ba";x.textAlign="left";x.fillText(sb+" km",14,W-21);
-  $("clock").textContent="Temps de lumière : "+dur(tl)+" · rayon : "+fmt(lr,lr<10?2:1)+" km";
+  const sb=nice(view/3);x.strokeStyle="#e8edf7";x.lineWidth=2;x.beginPath();x.moveTo(14,W-14);x.lineTo(14+sb*k,W-14);x.stroke();x.fillStyle="#92a0ba";x.textAlign="left";x.fillText(lenM(sb*1000),14,W-21);
+  $("clock").textContent="Temps de lumière : "+dur(tl)+" · rayon : "+lenM(lr*1000);
 }
-function frame(now){const dt=Math.min(.1,(now-last)/1e3);last=now;const maxT=view/KMS*1.02;
-  if(tl<maxT){tl=Math.min(maxT,tl+dt*rate);for(const p of PL)if(!hit[p.n]&&tl*KMS>=p.rk&&p.rk<=view)hit[p.n]=p.rk/KMS}
+function frame(now){const dt=Math.min(.1,(now-last)/1e3);last=now;const maxT=view0/KMS*1.02;
+  if(tl<maxT){tl=Math.min(maxT,tl+dt*rate);for(const p of PL)if(!hit[p.n]&&tl*KMS>=p.rk&&p.rk<=view0)hit[p.n]=p.rk/KMS}
   drawMap();requestAnimationFrame(frame)}
 function pickBtns(id,attr,fn){$(id).addEventListener("click",e=>{const b=e.target.closest("button["+attr+"]");if(!b)return;document.querySelectorAll("#"+id+" button["+attr+"]").forEach(x=>x.setAttribute("aria-pressed",x===b));fn(+b.getAttribute(attr))})}
 const reset=()=>{tl=0;hit={}};
-pickBtns("views","data-v",v=>{view=v;reset()});pickBtns("speeds","data-s",s=>{rate=s});$("replay").onclick=reset;
+pickBtns("views","data-v",v=>{vi=v;scaleUpdate();reset()});pickBtns("sel","data-o",i=>{oi=i;scaleUpdate();reset()});pickBtns("speeds","data-s",s=>{rate=s});$("replay").onclick=reset;
 // Tableau des distances
 const near=km=>{if(km<15)return"—";let b=null;for(const t of TK)if(!b||Math.abs(t.d-km)<Math.abs(b.d-km))b=t;return Math.abs(b.d-km)/km<.12?"≈ "+b.n+" ("+fmt(b.d)+" km)":"—"};
 const WALK=5/3.6;
-$("tdist").innerHTML="<tr><th>Astre</th><th>Distance réelle</th><th>À l’échelle</th><th>À pied (5 km/h)</th><th>Lumière</th><th>Équivalent depuis Chemillé</th></tr>"+
+function buildDist(){$("tdist").innerHTML="<tr><th>Astre</th><th>Distance réelle</th><th>À l’échelle</th><th>À pied (5 km/h)</th><th>Lumière</th><th>Équivalent depuis Chemillé</th></tr>"+
  [["Lune (de la Terre)",384400,"—"]].map(m=>`<tr><td>${m[0]}</td><td>${fmt(m[1])} km</td><td>${lenM(m[1]/SC)}</td><td>${dur(m[1]/SC/WALK)}</td><td>${dur(m[1]/C)}</td><td>—</td></tr>`).join("")+
- PL.map(p=>{const m=p.km*1000;return`<tr id="r-${p.n}"><td>${p.n}</td><td>${fmt(p.a*AU/1e6,p.a<2?1:0)} M km</td><td>${lenM(m)}</td><td>${dur(m/WALK)}</td><td>${dur(p.a*AU/C)}</td><td>${near(p.km)}</td></tr>`}).join("");
-drawSizes();setTimeout(()=>scrollTo("Terre"),50);requestAnimationFrame(frame);
+ PL.map(p=>{const m=p.km*1000;return`<tr id="r-${p.n}"><td>${p.n}</td><td>${fmt(p.a*AU/1e6,p.a<2?1:0)} M km</td><td>${lenM(m)}</td><td>${dur(m/WALK)}</td><td>${dur(p.a*AU/C)}</td><td>${near(p.km)}</td></tr>`}).join("");}
+function applyView(){view=view0/mag;const md=Math.min(...TK.map(t=>t.d));$("mapnote").textContent=view<md*.97?"À cette échelle, les villes les plus proches de Chemillé sont trop loin pour apparaître sur la carte.":"";sched()}
+function updateGoogle(){const f=$("gm"),st=$("gstat");if(gmode==="none"||!S2){f.style.display="none";st.style.display="none";return}
+  const R=S2/2-14,mpp=view*1000/R,zEx=Math.log2(156543.03392*Math.cos(LAT0*Math.PI/180)/mpp),zi=Math.max(1,Math.min(21,Math.round(zEx))),sc=Math.pow(2,zEx-zi),side=S2/sc;
+  const src="https://maps.google.com/maps?q="+LAT0+","+LON0+"&ll="+LAT0+","+LON0+"&z="+zi+"&t="+gmode+"&output=embed&hl=fr";
+  if(f.dataset.src!==src){f.dataset.src=src;f.src=src}
+  f.style.width=side+"px";f.style.height=side+"px";f.style.marginLeft=-side/2+"px";f.style.marginTop=-side/2+"px";f.style.transform="scale("+sc+")";f.style.opacity=1-gtr;f.style.display="block";st.style.display="block";st.innerHTML="Carte Google en cours de chargement… Si rien n’apparaît, ouvrez la page dans un navigateur connecté à Internet (les aperçus de fichiers bloquent les cartes) ou <a href=\"https://www.google.com/maps/@"+LAT0+","+LON0+","+zi+"z/data="+(gmode==="k"?"!3m1!1e3":"!5m1!1e4")+"\" target=\"_blank\" rel=\"noopener\">ouvrez cette zone dans Google Maps</a>."}
+function sched(){clearTimeout(gtimer);gtimer=setTimeout(updateGoogle,180)}
+$("gctl").addEventListener("click",e=>{const b=e.target.closest("button[data-g]");if(!b)return;document.querySelectorAll("#gctl button").forEach(x=>x.setAttribute("aria-pressed",x===b));gmode=b.dataset.g;$("gm").dataset.src="";updateGoogle()});
+$("gtr").addEventListener("input",e=>{gtr=+e.target.value/100;$("gm").style.opacity=1-gtr});
+$("gzm").addEventListener("input",e=>{mag=.5*Math.pow(16,+e.target.value/100);$("gzv").textContent="×"+fmt(mag,mag<10?1:0);applyView()});
+const OPT=[{obj:"un gros ballon"},{obj:"un ballon de basket",d:.24},{obj:"une balle de tennis",d:.067},{obj:"une balle de golf",d:.0427},{obj:"une bille",d:.016}],VAU=[1.95,6.2,32.2];let oi=0;
+const sig=n=>{const p=Math.pow(10,Math.floor(Math.log10(n))-1);return Math.round(n/p)*p};
+function scaleUpdate(){
+  const o=OPT[oi];SC=o.d?DE/o.d:37000;KMS=C/SC/1000;
+  PL.forEach(p=>{p.km=p.a*AU/SC/1000;p.rk=p.r*AU/SC/1000});view0=VAU[vi]*AU/SC/1000;
+  const kmh=C/SC*3.6,cmp=kmh<3?"plus lentement qu’un piéton":kmh<7?"à la vitesse de la marche":kmh<15?"comme un coureur":kmh<35?"comme un cycliste":"comme une voiture";
+  $("h2b").textContent="2 · Les distances à l’échelle : 1 m "+(o.d?"≈ ":"= ")+fmt(o.d?sig(SC):SC)+" km";
+  $("intro2").innerHTML="À cette échelle, la Terre mesure "+lenM(DE/SC)+" ("+o.obj+") et la Lune "+lenM(3474.8/SC)+", à "+lenM(384400/SC)+" d’elle. Le Soleil mesure "+lenM(1392700/SC)+". Posons le Soleil à <b>Chemillé</b> : les planètes se retrouvent sur la carte, aux vraies distances et dans leur direction du jour. Un signal lumineux part du Soleil : à cette échelle, il avance à "+fmt(kmh,kmh<10?1:0)+" km/h, "+cmp+".";
+  $("sum1").innerHTML="Si la Terre était "+o.obj+" ("+lenM(DE/SC)+"), la Lune mesurerait "+lenM(3474.8/SC)+", Jupiter "+lenM(139820/SC)+" et le Soleil "+lenM(1392700/SC)+".";
+  applyView();buildSizes();buildDist();
+}
+scaleUpdate();drawSizes();setTimeout(()=>scrollTo("Terre"),50);requestAnimationFrame(frame);
 </script>
 <script>
 (function(){var K="astro-nuit",d=document.documentElement,b=document.getElementById("nuit");if(!b)return;
