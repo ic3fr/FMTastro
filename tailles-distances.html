@@ -30,6 +30,7 @@ table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;min-
 th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
 th:first-child,td:first-child{text-align:left}th{color:var(--muted);font-weight:500;font-size:.85rem}
 tr.hit td{color:var(--accent)}
+select,input[type=search]{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit;min-width:0;flex:1}
 .topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 10px}
 .topbar a{color:var(--accent);text-decoration:none}
 #nuit{background:#e5281c;color:#000;border:1px solid #e5281c;border-radius:8px;padding:6px 12px;font:inherit;font-weight:600;cursor:pointer}
@@ -64,14 +65,17 @@ html[data-night]::after{content:"";position:fixed;left:0;top:0;right:0;bottom:0;
 <section class="card">
 <h2 id="h2b">2 · Les distances à l’échelle</h2>
 <p id="intro2"></p>
+<div class="ctl"><label>Origine du Soleil <select id="orig" aria-label="Origine du Soleil"></select></label><button id="geo">Ma position</button></div>
+<div class="ctl"><label>Autre lieu <input type="search" id="oq" placeholder="Ville ou village…" aria-label="Rechercher un lieu"></label><button id="osearch">Chercher</button></div>
+<div class="ctl" id="ores"></div><small id="omsg" style="display:block;margin-bottom:6px"></small>
 <div class="ctl" id="views"><button data-v="0" aria-pressed="false">Jusqu’à Mars</button><button data-v="1" aria-pressed="false">Jusqu’à Jupiter</button><button data-v="2" aria-pressed="true">Jusqu’à Neptune</button></div>
-<div id="mapbox"><iframe id="gm" title="Carte Google de la région de Chemillé" tabindex="-1" aria-hidden="true" referrerpolicy="no-referrer-when-downgrade"></iframe><canvas id="cm" role="img" aria-label="Carte autour de Chemillé montrant les orbites des planètes à l’échelle 1 m pour 37 000 km"></canvas></div>
+<div id="mapbox"><iframe id="gm" title="Carte Google de la région du lieu choisi" tabindex="-1" aria-hidden="true" referrerpolicy="no-referrer-when-downgrade"></iframe><canvas id="cm" role="img" aria-label="Carte autour du lieu choisi montrant les orbites des planètes à l’échelle 1 m pour 37 000 km"></canvas></div>
 <div class="ctl" id="gctl"><button data-g="none" aria-pressed="true">Sans carte Google</button><button data-g="k" aria-pressed="false">Satellite</button><button data-g="p" aria-pressed="false">Terrain</button></div>
 <div class="ctl"><label>Transparence de la carte <input type="range" id="gtr" min="0" max="95" value="40" aria-label="Transparence de la carte Google"></label><label>Zoom <input type="range" id="gzm" min="0" max="100" value="25" aria-label="Zoom de la carte"> <b id="gzv">×1</b></label></div>
 <small id="gnote">Le fond Google Maps demande une connexion Internet. Son échelle suit le zoom de la carte, mais l’alignement reste approximatif. Carte © Google.</small>
 <small id="gstat" style="display:none;margin-top:4px"></small>
 <div class="ctl" id="speeds"><button data-s="60" aria-pressed="false">1 min/s</button><button data-s="600" aria-pressed="true">10 min/s</button><button data-s="3600" aria-pressed="false">1 h/s</button><button id="replay">Rejouer</button><b id="clock"></b></div>
-<small>Orientation de la carte choisie arbitrairement : la direction d’une planète est son angle réel autour du Soleil aujourd’hui. Les villes sont à leur place, vues depuis Chemillé.</small>
+<small>Orientation de la carte choisie arbitrairement : la direction d’une planète est son angle réel autour du Soleil aujourd’hui. Les villes sont à leur place, vues depuis <span class="org">Chemillé</span>.</small>
 <small id="mapnote" style="display:block;margin-top:4px"></small>
 <div class="tw"><table id="tdist"></table></div>
 </section>
@@ -126,8 +130,8 @@ function buildSizes(){$("tsize").innerHTML="<tr><th>Astre</th><th>Diamètre</th>
 const EL={Mercure:[.38709927,.00000037,.20563593,.00001906,7.00497902,-.00594749,252.25032350,149472.67411175,77.45779628,.16047689,48.33076593,-.12534081],"Vénus":[.72333566,.0000039,.00677672,-.00004107,3.39467605,-.0007889,181.9790995,58517.81538729,131.60246718,.00268329,76.67984255,-.27769418],Terre:[1.00000261,.00000562,.01671123,-.00004392,-.00001531,-.01294668,100.46457166,35999.37244981,102.93768193,.32327364,0,0],Mars:[1.52371034,.00001847,.0933941,.00007882,1.84969142,-.00813131,-4.55343205,19140.30268499,-23.94362959,.44441088,49.55953891,-.29257343],Jupiter:[5.202887,-.00011607,.04838624,-.00013253,1.30439695,-.00183714,34.39644051,3034.74612775,14.72847983,.21252668,100.47390909,.20469106],Saturne:[9.53667594,-.0012506,.05386179,-.00050991,2.48599187,.00193609,49.95424423,1222.49362201,92.59887831,-.41897216,113.66242448,-.28867794],Uranus:[19.18916464,-.00196176,.04725744,-.00004397,.77263783,-.00242939,313.23810451,428.48202785,170.9542763,.40805281,74.01692503,.0424058],Neptune:[30.06992276,.00026291,.00859048,.00005105,1.77004347,.00035372,-55.12002969,218.45945325,44.96476227,-.32241464,131.78422574,-.00508664]};
 function pos(el,T){const D=Math.PI/180,[a0,da,e0,de,I0,dI,L0,dL,w0,dw,O0,dO]=el,a=a0+da*T,e=e0+de*T,w=w0+dw*T,om=(w-(O0+dO*T))*D,O=(O0+dO*T)*D;let M=(((L0+dL*T-w)%360)+540)%360-180;M*=D;let E=M+e*Math.sin(M);for(let i=0;i<8;i++)E=M+e*Math.sin(E);
   const xp=a*(Math.cos(E)-e),yp=a*Math.sqrt(1-e*e)*Math.sin(E),co=Math.cos(om),so=Math.sin(om),cO=Math.cos(O),sO=Math.sin(O),cI=Math.cos((I0+dI*T)*D);return[(co*cO-so*sO*cI)*xp+(-so*cO-co*sO*cI)*yp,(co*sO+so*cO*cI)*xp+(-so*sO+co*cO*cI)*yp]}
-const TOWNS=[["Cholet",47.0594,-.8786],["Angers",47.4784,-.5632],["Saumur",47.26,-.077],["Nantes",47.2184,-1.5536],["Tours",47.3941,.6848],["Le Mans",48.0061,.1996],["Rennes",48.1173,-1.6778],["Poitiers",46.5802,.3404],["Niort",46.3237,-.4588],["La Roche-sur-Yon",46.6705,-1.4269],["Laval",48.0698,-.77],["La Rochelle",46.1603,-1.1511],["Châtellerault",46.8167,.54],["Bressuire",46.84,-.49],["Saint-Nazaire",47.2733,-2.2139],["Ancenis",47.3667,-1.1833],["Segré",47.6833,-.8667],["Château-Gontier",47.829,-.704],["Beaupréau",47.2,-.9833],["Vihiers",47.1442,-.5311],["Doué-la-Fontaine",47.192,-.276],["Thouars",46.976,-.215],["Chinon",47.167,.24],["Fontenay-le-Comte",46.4667,-.8]];
-const LAT0=47.2167,LON0=-.7333,TK=TOWNS.map(t=>{const dx=(t[2]-LON0)*111.32*Math.cos(LAT0*Math.PI/180),dy=(t[1]-LAT0)*110.57;return{n:t[0],x:dx,y:dy,d:Math.hypot(dx,dy)}});
+const CITIES=[["Cholet",47.0594,-0.8786],["Angers",47.4784,-0.5632],["Saumur",47.26,-0.077],["Nantes",47.2184,-1.5536],["Tours",47.3941,0.6848],["Le Mans",48.0061,0.1996],["Rennes",48.1173,-1.6778],["Poitiers",46.5802,0.3404],["Niort",46.3237,-0.4588],["La Roche-sur-Yon",46.6705,-1.4269],["Laval",48.0698,-0.77],["La Rochelle",46.1603,-1.1511],["Châtellerault",46.8167,0.54],["Bressuire",46.84,-0.49],["Saint-Nazaire",47.2733,-2.2139],["Ancenis",47.3667,-1.1833],["Segré",47.6833,-0.8667],["Château-Gontier",47.829,-0.704],["Beaupréau",47.2,-0.9833],["Vihiers",47.1442,-0.5311],["Doué-la-Fontaine",47.192,-0.276],["Thouars",46.976,-0.215],["Chinon",47.167,0.24],["Paris",48.8566,2.3522],["Lyon",45.764,4.8357],["Marseille",43.2965,5.3698],["Toulouse",43.6047,1.4442],["Nice",43.7102,7.262],["Strasbourg",48.5734,7.7521],["Montpellier",43.6108,3.8767],["Bordeaux",44.8378,-0.5792],["Lille",50.6292,3.0573],["Reims",49.2583,4.0317],["Le Havre",49.4944,0.1079],["Saint-Étienne",45.4397,4.3872],["Toulon",43.1242,5.928],["Grenoble",45.1885,5.7245],["Dijon",47.322,5.0415],["Nîmes",43.8367,4.3601],["Clermont-Ferrand",45.7772,3.087],["Brest",48.3904,-4.4861],["Amiens",49.8941,2.2958],["Limoges",45.8336,1.2611],["Metz",49.1193,6.1757],["Besançon",47.2378,6.0241],["Orléans",47.9029,1.9093],["Rouen",49.4432,1.0993],["Caen",49.1829,-0.3707],["Nancy",48.6921,6.1844],["Avignon",43.9493,4.8055],["Vannes",47.6582,-2.7608],["Quimper",47.996,-4.1024],["Lorient",47.7482,-3.3667],["Chartres",48.4469,1.4891],["Bourges",47.081,2.3988],["Troyes",48.2973,4.0744],["Pau",43.2951,-0.3708],["Bayonne",43.4929,-1.4748],["Perpignan",42.6887,2.8948],["Ajaccio",41.9192,8.7386],["Cherbourg",49.6337,-1.6221],["Saint-Malo",48.6493,-2.0257],["Angoulême",45.6484,0.1562],["Annecy",45.8992,6.1294],["Mulhouse",47.7508,7.3359],["Chambéry",45.5646,5.9178],["Londres",51.5074,-0.1278],["Bruxelles",50.8503,4.3517],["Genève",46.2044,6.1432],["Madrid",40.4168,-3.7038],["Barcelone",41.3874,2.1686],["Berlin",52.52,13.405],["Rome",41.9028,12.4964],["Lisbonne",38.7223,-9.1393],["Amsterdam",52.3676,4.9041],["Luxembourg",49.6116,6.1319]];
+let LAT0=47.2167,LON0=-.7333,ORG="Chemillé",TK=[];
 const T=(Date.now()/864e5+2440587.5-2451545)/36525,PL=B.filter(b=>b[3]).map(b=>{const p=pos(EL[b[0]],T),r=Math.hypot(...p);return{n:b[0],c:b[2],a:b[3],r,km:0,rk:0,ang:Math.atan2(p[1],p[0])}});
 let view=130,view0=130,mag=1,gmode="none",gtr=.4,gtimer=null,vi=2,rate=600,tl=0,last=performance.now(),hit={};
 const cm=$("cm"),cx2=cm.getContext("2d");let S2=0;
@@ -141,7 +145,7 @@ function drawMap(){
   const lr=tl*KMS;
   if(lr>0){x.strokeStyle="rgba(255,226,140,.95)";x.lineWidth=2;x.shadowColor="#ffd34d";x.shadowBlur=10;x.beginPath();x.arc(c,c,Math.min(lr,view*2)*k,0,7);x.stroke();x.shadowBlur=0}
   x.shadowColor="#ffd34d";x.shadowBlur=14;x.fillStyle="#ffcf5a";x.beginPath();x.arc(c,c,4,0,7);x.fill();x.shadowBlur=0;
-  x.lineWidth=3;x.strokeStyle="rgba(5,10,22,.85)";x.fillStyle="#ffe9a8";x.textAlign="center";x.strokeText("Chemillé = Soleil",c,c+19);x.fillText("Chemillé = Soleil",c,c+19);x.textAlign="left";
+  x.lineWidth=3;x.strokeStyle="rgba(5,10,22,.85)";x.fillStyle="#ffe9a8";x.textAlign="center";x.strokeText(ORG+" = Soleil",c,c+19);x.fillText(ORG+" = Soleil",c,c+19);x.textAlign="left";
   for(const p of PL){const r=p.rk*k;if(r>R)continue;const X=c+Math.cos(p.ang)*r,Y=c-Math.sin(p.ang)*r,rr=Math.max(3,Math.min(8,p.km*0+4+Math.log10(B.find(b=>b[0]===p.n)[1]/DE+.5)*3));
     x.fillStyle=p.c;x.beginPath();x.arc(X,Y,rr,0,7);x.fill();if(p.n==="Terre"){x.strokeStyle="#fff";x.lineWidth=1.5;x.beginPath();x.arc(X,Y,rr+3,0,7);x.stroke()}
     if(r>34||(view<=25&&r>14)){const lab=p.n+(hit[p.n]?" · "+dur(hit[p.n]):""),left=X>W*.68;x.textAlign=left?"right":"left";const tx=left?X-rr-5:X+rr+5;x.lineWidth=3;x.strokeStyle="rgba(5,10,22,.85)";x.strokeText(lab,tx,Y+4);x.fillStyle=hit[p.n]?"#ffe9a8":"#fff";x.fillText(lab,tx,Y+4);x.textAlign="left"}}
@@ -157,10 +161,10 @@ pickBtns("views","data-v",v=>{vi=v;scaleUpdate();reset()});pickBtns("sel","data-
 // Tableau des distances
 const near=km=>{if(km<15)return"—";let b=null;for(const t of TK)if(!b||Math.abs(t.d-km)<Math.abs(b.d-km))b=t;return Math.abs(b.d-km)/km<.12?"≈ "+b.n+" ("+fmt(b.d)+" km)":"—"};
 const WALK=5/3.6;
-function buildDist(){$("tdist").innerHTML="<tr><th>Astre</th><th>Distance réelle</th><th>À l’échelle</th><th>À pied (5 km/h)</th><th>Lumière</th><th>Équivalent depuis Chemillé</th></tr>"+
+function buildDist(){$("tdist").innerHTML="<tr><th>Astre</th><th>Distance réelle</th><th>À l’échelle</th><th>À pied (5 km/h)</th><th>Lumière</th><th>Équivalent depuis "+ORG+"</th></tr>"+
  [["Lune (de la Terre)",384400,"—"]].map(m=>`<tr><td>${m[0]}</td><td>${fmt(m[1])} km</td><td>${lenM(m[1]/SC)}</td><td>${dur(m[1]/SC/WALK)}</td><td>${dur(m[1]/C)}</td><td>—</td></tr>`).join("")+
  PL.map(p=>{const m=p.km*1000;return`<tr id="r-${p.n}"><td>${p.n}</td><td>${fmt(p.a*AU/1e6,p.a<2?1:0)} M km</td><td>${lenM(m)}</td><td>${dur(m/WALK)}</td><td>${dur(p.a*AU/C)}</td><td>${near(p.km)}</td></tr>`}).join("");}
-function applyView(){view=view0/mag;const md=Math.min(...TK.map(t=>t.d));$("mapnote").textContent=view<md*.97?"À cette échelle, les villes les plus proches de Chemillé sont trop loin pour apparaître sur la carte.":"";sched()}
+function applyView(){view=view0/mag;const md=Math.min(...TK.map(t=>t.d));$("mapnote").textContent=view<md*.97?"À cette échelle, aucune ville de la liste n’est assez proche de "+ORG+" pour apparaître sur la carte.":"";sched()}
 function updateGoogle(){const f=$("gm"),st=$("gstat");if(gmode==="none"||!S2){f.style.display="none";st.style.display="none";return}
   const R=S2/2-14,mpp=view*1000/R,zEx=Math.log2(156543.03392*Math.cos(LAT0*Math.PI/180)/mpp),zi=Math.max(1,Math.min(21,Math.round(zEx))),sc=Math.pow(2,zEx-zi),side=S2/sc;
   const src="https://maps.google.com/maps?q="+LAT0+","+LON0+"&ll="+LAT0+","+LON0+"&z="+zi+"&t="+gmode+"&output=embed&hl=fr";
@@ -170,6 +174,21 @@ function sched(){clearTimeout(gtimer);gtimer=setTimeout(updateGoogle,180)}
 $("gctl").addEventListener("click",e=>{const b=e.target.closest("button[data-g]");if(!b)return;document.querySelectorAll("#gctl button").forEach(x=>x.setAttribute("aria-pressed",x===b));gmode=b.dataset.g;$("gm").dataset.src="";updateGoogle()});
 $("gtr").addEventListener("input",e=>{gtr=+e.target.value/100;$("gm").style.opacity=1-gtr});
 $("gzm").addEventListener("input",e=>{mag=.5*Math.pow(16,+e.target.value/100);$("gzv").textContent="×"+fmt(mag,mag<10?1:0);applyView()});
+const PRE=[["Chemillé",47.2167,-.7333],["Paris",48.8566,2.3522],["Lyon",45.764,4.8357],["Marseille",43.2965,5.3698],["Toulouse",43.6047,1.4442],["Bordeaux",44.8378,-.5792],["Lille",50.6292,3.0573],["Strasbourg",48.5734,7.7521],["Nantes",47.2184,-1.5536],["Rennes",48.1173,-1.6778],["Brest",48.3904,-4.4861],["Nice",43.7102,7.262],["Ajaccio",41.9192,8.7386],["Londres",51.5074,-.1278],["Madrid",40.4168,-3.7038],["New York",40.7128,-74.006],["Tokyo",35.6762,139.6503],["Sydney",-33.8688,151.2093]];
+function buildTK(){const k=Math.cos(LAT0*Math.PI/180);TK=CITIES.map(t=>{const x=(t[2]-LON0)*111.32*k,y=(t[1]-LAT0)*110.57;return{n:t[0],x,y,d:Math.hypot(x,y)}}).filter(t=>t.d>.5)}
+function setOrigin(lat,lon,name){LAT0=lat;LON0=lon;ORG=name;buildTK();document.querySelectorAll(".org").forEach(e=>e.textContent=name);$("gm").dataset.src="";applyView();buildDist();updateGoogle();reset()}
+$("orig").innerHTML='<option value="-1">Choisir un lieu…</option>'+PRE.map((p,i)=>`<option value="${i}">${p[0]==="Chemillé"?"Chemillé-en-Anjou":p[0]}</option>`).join("");$("orig").value="0";
+$("orig").onchange=e=>{const i=+e.target.value;if(i<0)return;const p=PRE[i];$("omsg").textContent="";$("ores").innerHTML="";setOrigin(p[1],p[2],p[0])};
+let RES=[];
+async function searchPlace(){const q=$("oq").value.trim();if(!q)return;$("omsg").textContent="Recherche…";$("ores").innerHTML="";
+  try{const r=await fetch("https://geocoding-api.open-meteo.com/v1/search?name="+encodeURIComponent(q)+"&count=5&language=fr&format=json"),j=await r.json();RES=j.results||[];
+    $("omsg").textContent=RES.length?"Choisissez le lieu :":"Aucun lieu trouvé.";
+    $("ores").innerHTML=RES.map((x,i)=>`<button data-i="${i}">${x.name}${x.admin1?" ("+x.admin1+")":""}${x.country?", "+x.country:""}</button>`).join("")}
+  catch(e){$("omsg").textContent="Recherche indisponible : elle demande une connexion Internet."}}
+$("osearch").onclick=searchPlace;$("oq").addEventListener("keydown",e=>{if(e.key==="Enter")searchPlace()});
+$("ores").addEventListener("click",e=>{const b=e.target.closest("button[data-i]");if(!b)return;const x=RES[+b.dataset.i];$("orig").value="-1";$("omsg").textContent="Origine : "+x.name+".";$("ores").innerHTML="";setOrigin(x.latitude,x.longitude,x.name)});
+$("geo").onclick=()=>{if(!navigator.geolocation){$("omsg").textContent="Position indisponible sur cet appareil.";return}$("omsg").textContent="Recherche de votre position…";
+  navigator.geolocation.getCurrentPosition(p=>{$("orig").value="-1";$("omsg").textContent="Origine : votre position.";setOrigin(p.coords.latitude,p.coords.longitude,"Ma position")},()=>{$("omsg").textContent="Position indisponible (autorisation refusée ou page non sécurisée)."},{timeout:10000})};
 const OPT=[{obj:"un gros ballon"},{obj:"un ballon de basket",d:.24},{obj:"une balle de tennis",d:.067},{obj:"une balle de golf",d:.0427},{obj:"une bille",d:.016}],VAU=[1.95,6.2,32.2];let oi=0;
 const sig=n=>{const p=Math.pow(10,Math.floor(Math.log10(n))-1);return Math.round(n/p)*p};
 function scaleUpdate(){
@@ -177,11 +196,11 @@ function scaleUpdate(){
   PL.forEach(p=>{p.km=p.a*AU/SC/1000;p.rk=p.r*AU/SC/1000});view0=VAU[vi]*AU/SC/1000;
   const kmh=C/SC*3.6,cmp=kmh<3?"plus lentement qu’un piéton":kmh<7?"à la vitesse de la marche":kmh<15?"comme un coureur":kmh<35?"comme un cycliste":"comme une voiture";
   $("h2b").textContent="2 · Les distances à l’échelle : 1 m "+(o.d?"≈ ":"= ")+fmt(o.d?sig(SC):SC)+" km";
-  $("intro2").innerHTML="À cette échelle, la Terre mesure "+lenM(DE/SC)+" ("+o.obj+") et la Lune "+lenM(3474.8/SC)+", à "+lenM(384400/SC)+" d’elle. Le Soleil mesure "+lenM(1392700/SC)+". Posons le Soleil à <b>Chemillé</b> : les planètes se retrouvent sur la carte, aux vraies distances et dans leur direction du jour. Un signal lumineux part du Soleil : à cette échelle, il avance à "+fmt(kmh,kmh<10?1:0)+" km/h, "+cmp+".";
+  $("intro2").innerHTML="À cette échelle, la Terre mesure "+lenM(DE/SC)+" ("+o.obj+") et la Lune "+lenM(3474.8/SC)+", à "+lenM(384400/SC)+" d’elle. Le Soleil mesure "+lenM(1392700/SC)+". Posons le Soleil à <b>"+ORG+"</b> : les planètes se retrouvent sur la carte, aux vraies distances et dans leur direction du jour. Un signal lumineux part du Soleil : à cette échelle, il avance à "+fmt(kmh,kmh<10?1:0)+" km/h, "+cmp+".";
   $("sum1").innerHTML="Si la Terre était "+o.obj+" ("+lenM(DE/SC)+"), la Lune mesurerait "+lenM(3474.8/SC)+", Jupiter "+lenM(139820/SC)+" et le Soleil "+lenM(1392700/SC)+".";
   applyView();buildSizes();buildDist();
 }
-scaleUpdate();drawSizes();setTimeout(()=>scrollTo("Terre"),50);requestAnimationFrame(frame);
+buildTK();scaleUpdate();drawSizes();setTimeout(()=>scrollTo("Terre"),50);requestAnimationFrame(frame);
 </script>
 <script>
 (function(){var K="astro-nuit",d=document.documentElement,b=document.getElementById("nuit");if(!b)return;

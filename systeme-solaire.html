@@ -62,7 +62,7 @@ html[data-night]::after{content:"";position:fixed;left:0;top:0;right:0;bottom:0;
 <p class="note">Vue de dessus, depuis le nord de l’écliptique. Positions calculées avec les éléments képlériens approchés du JPL (précision d’environ un degré). Dans la vue complète, les distances sont compressées pour que les planètes internes restent visibles.</p>
 </main>
 <script>
-const D=Math.PI/180;
+const D=Math.PI/180;const SUNI=new Image(),MRI=new Image();SUNI.src="sun.png";MRI.src="mars.png";
 // a,da, e,de, I,dI, L,dL, varpi,dvarpi, Omega,dOmega (par siècle)
 const P=[
 ["Mercure","#b8b2a7",[.38709927,.00000037,.20563593,.00001906,7.00497902,-.00594749,252.25032350,149472.67411175,77.45779628,.16047689,48.33076593,-.12534081]],
@@ -108,11 +108,11 @@ function draw(T){
     ctx.strokeStyle=n==="Terre"?"rgba(79,179,255,.55)":"rgba(146,160,186,.28)";ctx.stroke();
   }
   ctx.fillStyle="#ffcf5a";ctx.shadowColor="#ffcf5a";ctx.shadowBlur=18;
-  ctx.beginPath();ctx.arc(size/2,size/2,6,0,7);ctx.fill();ctx.shadowBlur=0;
+  if(SUNI.complete&&SUNI.naturalWidth){ctx.save();ctx.beginPath();ctx.arc(size/2,size/2,8,0,7);ctx.clip();ctx.drawImage(SUNI,size/2-8,size/2-8,16,16);ctx.restore()}else{ctx.beginPath();ctx.arc(size/2,size/2,6,0,7);ctx.fill()}ctx.shadowBlur=0;
   ctx.font="13px system-ui,sans-serif";
   for(const [n,c,el] of list){
     const [x,y]=xy(el,T),[px,py]=proj(x,y),e=n==="Terre";
-    ctx.fillStyle=c;ctx.beginPath();ctx.arc(px,py,e?6:4.5,0,7);ctx.fill();
+    if(n==="Mars"&&MRI.complete&&MRI.naturalWidth){ctx.save();ctx.beginPath();ctx.arc(px,py,6,0,7);ctx.clip();ctx.drawImage(MRI,px-6,py-6,12,12);ctx.restore()}else{ctx.fillStyle=c;ctx.beginPath();ctx.arc(px,py,e?6:4.5,0,7);ctx.fill()}
     if(e){ctx.strokeStyle="#fff";ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(px,py,9,0,7);ctx.stroke();ctx.lineWidth=1}
     const left=px>size*0.78;
     ctx.textAlign=left?"right":"left";ctx.fillStyle=e?"#8fd0ff":"#e8edf7";

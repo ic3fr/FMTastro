@@ -129,6 +129,7 @@ const $=id=>document.getElementById(id);
 function dot(x,y,r,c){ctx.fillStyle=c;ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill()}
 function label(s,x,y,c){ctx.font="13px system-ui,sans-serif";ctx.fillStyle=c||"#e8edf7";ctx.textAlign=x>size*.78?"right":"left";ctx.fillText(s,x+(x>size*.78?-10:10),y+4)}
 function ring(x,y){if(flash>0){ctx.strokeStyle="rgba(255,155,61,"+(flash/.9)+")";ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(x,y,10+(.9-flash)*60,0,7);ctx.stroke()}}
+const SUNI=new Image(),MRI=new Image();SUNI.src="sun.png";MRI.src="mars.png";
 let EBMP=null;const TI=new Image();TI.onload=()=>{try{const W=TI.naturalWidth,H=TI.naturalHeight,c0=document.createElement("canvas");c0.width=W;c0.height=H;const x0=c0.getContext("2d");x0.drawImage(TI,0,0);const T=x0.getImageData(0,0,W,H).data,N=420,b=document.createElement("canvas");b.width=b.height=N;const bx=b.getContext("2d"),im=bx.createImageData(N,N),px=im.data,p0=20*Math.PI/180,sp=Math.sin(p0),cp=Math.cos(p0),l0=10*Math.PI/180;let i=0;for(let py=0;py<N;py++){const y=1-2*(py+.5)/N;for(let q=0;q<N;q++,i+=4){const x=2*(q+.5)/N-1,r2=x*x+y*y;if(r2>1){px[i+3]=0;continue}const cc=Math.sqrt(1-r2),sl=cc*sp+y*cp,lat=Math.asin(sl)*180/Math.PI,lon=(l0+Math.atan2(x,cp*cc-y*sp))*180/Math.PI,ld=((lon%360)+540)%360-180,o=4*(Math.min(H-1,Math.floor((90-lat)/180*H))*W+Math.min(W-1,Math.floor((ld+180)/360*W))),f=.45+.55*Math.pow(cc,.6);px[i]=T[o]*f;px[i+1]=T[o+1]*f;px[i+2]=T[o+2]*f;px[i+3]=255}}bx.putImageData(im,0,0);EBMP=b}catch(e){EBMP=null}};TI.src="earth.jpg";
 function drawSun(){
   const c=size/2,k=(size/2-26)/1.85,P=(x,y)=>[c+x*k,c-y*k],ms=launch+t*1e3,T=jc(ms),tau=Math.max(0,(t-tB)/86400);
@@ -139,9 +140,9 @@ function drawSun(){
   ctx.beginPath();const n=Math.max(2,Math.ceil(120*Math.min(tau,tof)/tof));for(let i=0;i<=n;i++){const[x,y]=helio(Math.min(tau,tof)*i/n),[a,b]=P(x,y);i?ctx.lineTo(a,b):ctx.moveTo(a,b)}
   ctx.strokeStyle="#ffffff";ctx.lineWidth=2;ctx.stroke();
   const[ma,mb]=P(mEnd[0],mEnd[1]);ctx.strokeStyle="rgba(226,112,79,.7)";ctx.lineWidth=1;ctx.beginPath();ctx.arc(ma,mb,9,0,7);ctx.stroke();
-  ctx.shadowColor="#ffcf5a";ctx.shadowBlur=18;dot(c,c,6,"#ffcf5a");ctx.shadowBlur=0;
+  ctx.shadowColor="#ffcf5a";ctx.shadowBlur=18;if(SUNI.complete&&SUNI.naturalWidth){ctx.save();ctx.beginPath();ctx.arc(c,c,8,0,7);ctx.clip();ctx.drawImage(SUNI,c-8,c-8,16,16);ctx.restore()}else dot(c,c,6,"#ffcf5a");ctx.shadowBlur=0;
   const e=pl("E",ms),m=pl("M",ms),s=helio(tau),[ea,eb]=P(e[0],e[1]),[mx,my]=P(m[0],m[1]),[sx,sy]=P(s[0],s[1]);
-  dot(ea,eb,5,"#4fb3ff");label("Terre",ea,eb,"#8fd0ff");dot(mx,my,4.5,"#e2704f");label("Mars",mx,my);
+  dot(ea,eb,5,"#4fb3ff");label("Terre",ea,eb,"#8fd0ff");if(MRI.complete&&MRI.naturalWidth){ctx.save();ctx.beginPath();ctx.arc(mx,my,6,0,7);ctx.clip();ctx.drawImage(MRI,mx-6,my-6,12,12);ctx.restore()}else dot(mx,my,4.5,"#e2704f");label("Mars",mx,my);
   dot(sx,sy,3.5,"#fff");ring(sx,sy);
   const v=29.7847*Math.sqrt(2/s[2]-1/sa);
   $("h4").textContent=v.toFixed(1)+" km/s (par rapport au Soleil)";
@@ -156,7 +157,7 @@ function drawBody(scene,dt){
   const c=size/2,k=(size/2-14)/vr,P=q=>[c+q[0]*k,c-q[1]*k];
   const g=ctx.createRadialGradient(c,c,R*k*.2,c,c,R*k);
   g.addColorStop(0,scene===0?"#3a86d4":"#d27a52");g.addColorStop(1,scene===0?"#1b4f8f":"#8f3d22");
-  if(scene===0&&EBMP)ctx.drawImage(EBMP,c-R*k,c-R*k,2*R*k,2*R*k);else{ctx.fillStyle=g;ctx.beginPath();ctx.arc(c,c,R*k,0,7);ctx.fill()}
+  if(scene===0&&EBMP)ctx.drawImage(EBMP,c-R*k,c-R*k,2*R*k,2*R*k);else if(scene===1&&MRI.complete&&MRI.naturalWidth)ctx.drawImage(MRI,c-R*k,c-R*k,2*R*k,2*R*k);else{ctx.fillStyle=g;ctx.beginPath();ctx.arc(c,c,R*k,0,7);ctx.fill()}
   ctx.strokeStyle=scene===0?"rgba(120,190,255,.4)":"rgba(255,170,120,.3)";ctx.lineWidth=2;ctx.beginPath();ctx.arc(c,c,R*k+2,0,7);ctx.stroke();
   for(const s of st){if(s.t0>=t)continue;
     const a=s.span?Math.max(s.t0,t-s.span):s.t0,b=Math.min(t,s.t1);

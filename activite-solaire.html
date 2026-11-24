@@ -120,9 +120,9 @@ async function loadAll(){
   await Promise.all(jobs.map(async([f,id,t])=>{try{await f()}catch(e){fail(id,t)}}));
   aurora();$("maj").textContent="Mis à jour à "+new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})+".";
 }
-const IM=["HMIIC","0193","0304"],img=$("sunimg");
-function setImg(i){img.src="https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_"+IM[i]+".jpg?"+Math.floor(Date.now()/3e5)}
-img.onerror=()=>{$("imgnote").textContent="Image indisponible pour le moment."};
+const IM=["HMIIC","0193","0304"],img=$("sunimg");let fb=0;
+function setImg(i){fb=0;img.src="https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_"+IM[i]+".jpg?"+Math.floor(Date.now()/3e5)}
+img.onerror=()=>{if(!fb){fb=1;img.src="sun.png";$("imgnote").textContent="Image en direct indisponible : photo d’illustration."}};
 $("tabs").addEventListener("click",e=>{const b=e.target.closest("button[data-i]");if(!b)return;document.querySelectorAll("#tabs button").forEach(x=>x.setAttribute("aria-pressed",x===b));setImg(+b.dataset.i)});
 setImg(0);loadAll();setInterval(()=>{loadAll();const a=document.querySelector("#tabs [aria-pressed=true]");setImg(+a.dataset.i)},3e5);
 addEventListener("resize",()=>{clearTimeout(window._rz);window._rz=setTimeout(loadAll,400)});

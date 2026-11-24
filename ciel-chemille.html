@@ -32,6 +32,9 @@ th,td{text-align:right;padding:5px 8px;border-bottom:1px solid var(--line);white
 .pan canvas{display:block}
 input[type=range]{padding:0;flex:1;min-width:140px;accent-color:var(--accent)}
 .ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 6px}
+.link{cursor:pointer}.link:hover{border-color:var(--accent)}.go{color:var(--accent);margin:8px 0 0}
+.pl{display:flex;gap:8px;align-items:center;flex:1;min-width:220px;color:var(--muted)}.pl input,.pl select{flex:1;min-width:0}
+select{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit}
 .lbl{display:flex;justify-content:space-between;color:var(--muted);font-size:.8rem}
 </style>
 <style>
@@ -47,8 +50,8 @@ html[data-night]::after{content:"";position:fixed;left:0;top:0;right:0;bottom:0;
 <body>
 <main>
 <div class="topbar"><a href="index.html">← Menu</a><button id="nuit" aria-pressed="false">Mode nuit</button></div>
-<h1>Ciel de Chemillé</h1>
-<p class="sub">Chemillé-en-Anjou (France) · 47,22° N, 0,73° O · heures de Paris</p>
+<h1>Ciel de <span class="place">Chemillé</span></h1>
+<p class="sub" id="psub">Chemillé-en-Anjou (France) · 47,22° N, 0,73° O · heures de Paris</p>
 <noscript><p class="bad">JavaScript est désactivé : la page ne peut pas s’afficher.</p></noscript>
 <div id="err" class="card bad" hidden style="margin-bottom:12px"></div>
 <div class="bar">
@@ -58,30 +61,34 @@ html[data-night]::after{content:"";position:fixed;left:0;top:0;right:0;bottom:0;
 <button data-d="2" aria-pressed="false">+2</button>
 <button data-d="3" aria-pressed="false">+3</button>
 </div>
+<div class="bar"><label class="pl">Lieu <select id="orig" aria-label="Lieu d’observation"></select></label><button id="geo">Ma position</button></div>
+<div class="bar"><label class="pl">Coordonnées GPS <input id="gps" placeholder="47,2167 ; -0,7333" aria-label="Latitude et longitude" inputmode="text"></label><button id="gpsgo">Aller</button></div>
+<div class="bar"><label class="pl">Rechercher un lieu <input type="search" id="oq" placeholder="Ville ou village…" aria-label="Rechercher un lieu"></label><button id="osearch">Chercher</button></div>
+<div class="bar" id="ores"></div><small id="omsg" style="display:block;margin:0 0 10px"></small>
 <div class="grid">
 <section class="card wide" id="k-obs">Chargement…</section>
-<section class="card" id="k-sun">Chargement…</section>
-<section class="card" id="k-moon">Chargement…</section>
+<section class="card link" id="k-sun" role="link" tabindex="0" aria-label="Soleil : ouvrir la page Activité solaire">Chargement…</section>
+<section class="card link" id="k-moon" role="link" tabindex="0" aria-label="Lune : ouvrir la page Pleine Lune à Chemillé">Chargement…</section>
 <section class="card" id="k-meteo">Chargement…</section>
 <section class="card" id="k-dew">Chargement…</section>
 <section class="card" id="k-rad">Chargement…</section>
 <section class="card" id="k-show">Chargement…</section>
-<section class="card wide" id="k-pan"><h2>🧭 Vue du ciel depuis Chemillé</h2>
+<section class="card wide" id="k-pan"><h2>🧭 Vue du ciel depuis <span class="place">Chemillé</span></h2>
 <div class="pan"><canvas id="pc" role="img" aria-label="Panorama du ciel : position des planètes selon l’azimut et la hauteur"></canvas></div>
 <div class="ctl"><button id="pplay" aria-pressed="false">▶ Simuler la nuit</button><input type="range" id="pslide" aria-label="Heure de la simulation" value="0"><b id="ptime"></b></div>
-<small>Axe horizontal : azimut (0° nord, 90° est, 180° sud, 270° ouest). Axe vertical : hauteur au-dessus de l’horizon. Pointillés : l’écliptique, la ligne où se trouvent les planètes. Faites glisser pour voir tout l’horizon.</small></section>
+<small>Axe horizontal : azimut (0° nord, 90° est, 180° sud, 270° ouest). Axe vertical : hauteur au-dessus de l’horizon. Pointillés : l’écliptique, la ligne où se trouvent les planètes. Faites glisser pour voir tout l’horizon. Touchez le Soleil ou la Lune pour ouvrir leur page.</small></section>
 <section class="card wide" id="k-pla">Chargement…</section>
 <section class="card wide" id="k-hr">Chargement…</section>
 </div>
 <p class="note" style="margin-top:14px">Calculs astronomiques simplifiés (précision d’environ 1 à 2 minutes pour le Soleil et la Lune, d’environ 0,5° pour les planètes). Météo : Open-Meteo. Activité géomagnétique : NOAA SWPC. Si les modules restent sur « Chargement… », ouvrez le fichier dans Chrome, Firefox ou Safari : les aperçus de fichiers et certains navigateurs bloquent les scripts. L’indice d’observation est une estimation indicative.</p>
 </main>
 <script>
-const LAT=47.2167,LON=-0.7333,TZ="Europe/Paris",D=Math.PI/180,$=id=>document.getElementById(id);
+let LAT=47.2167,LON=-0.7333,TZ="Europe/Paris",PLACE="Chemillé";const D=Math.PI/180,$=id=>document.getElementById(id);
 const S=x=>Math.sin(x*D),Co=x=>Math.cos(x*D),dd=ms=>ms/864e5+2440587.5-2451545;
-const tzf=new Intl.DateTimeFormat("en-US",{timeZone:TZ,hourCycle:"h23",year:"numeric",month:"numeric",day:"numeric",hour:"numeric",minute:"numeric",second:"numeric"});
+const mkTzf=z=>new Intl.DateTimeFormat("en-US",{timeZone:z,hourCycle:"h23",year:"numeric",month:"numeric",day:"numeric",hour:"numeric",minute:"numeric",second:"numeric"});let tzf=mkTzf(TZ);
 const tz=ms=>{const p=tzf.formatToParts(ms).reduce((o,x)=>(o[x.type]=+x.value,o),{});return Date.UTC(p.year,p.month-1,p.day,p.hour%24,p.minute,p.second)-Math.floor(ms/1e3)*1e3};
 const hm=ms=>new Date(ms).toLocaleTimeString("fr-FR",{timeZone:TZ,hour:"2-digit",minute:"2-digit"}).replace(":","h");
-const dur=m=>Math.floor(m/60)+" h "+String(Math.round(m%60)).padStart(2,"0");
+const dur=m=>{const t=Math.round(m);return Math.floor(t/60)+" h "+String(t%60).padStart(2,"0")};
 const f1=(x,n=1)=>x.toFixed(n).replace(".",","),row=(a,b)=>`<div class="r"><span>${a}</span><b>${b}</b></div>`;
 const hkey=ms=>new Date(ms+tz(ms)).toISOString().slice(0,13)+":00";
 // Astres
@@ -140,12 +147,12 @@ function drawPan(){
   for(let l=0;l<=360;l+=3){const r=l*D,e=23.44*D,p=altaz(Math.atan2(Math.cos(e)*Math.sin(r),Math.cos(r)),Math.asin(Math.sin(e)*Math.sin(r)),t);
     if(p[0]<-15){pen=false;continue}if(pen&&Math.abs(p[1]-pa)>180)pen=false;pen?x.lineTo(X(p[1]),Y(p[0])):x.moveTo(X(p[1]),Y(p[0]));pen=true;pa=p[1]}
   x.stroke();x.setLineDash([]);
-  const disc=(px,py,r,img,col)=>{x.save();x.beginPath();x.arc(px,py,r,0,7);x.clip();if(img&&MI.complete&&MI.naturalWidth)x.drawImage(MI,px-r,py-r,2*r,2*r);else{x.fillStyle=col;x.fillRect(px-r,py-r,2*r,2*r)}x.restore()};
-  const inR=p=>p[0]>=-15;
-  if(inR(sun)){x.shadowColor="#ffd34d";x.shadowBlur=14;disc(X(sun[1]),Y(sun[0]),9,false,"#ffd34d");x.shadowBlur=0;txt("Soleil",X(sun[1])+13,PY(X(sun[1]),Y(sun[0])),"#ffe9a8")}
-  const me=moonEq(t),mo=altaz(me.ra,me.dec,t);if(inR(mo)){disc(X(mo[1]),Y(mo[0]),9,true,"#d8d4c4");x.strokeStyle="rgba(255,255,255,.4)";x.beginPath();x.arc(X(mo[1]),Y(mo[0]),9,0,7);x.stroke();txt("Lune",X(mo[1])+13,PY(X(mo[1]),Y(mo[0])),"#fff")}
+  const disc=(px,py,r,im,col)=>{x.save();x.beginPath();x.arc(px,py,r,0,7);x.clip();if(im&&im.complete&&im.naturalWidth)x.drawImage(im,px-r,py-r,2*r,2*r);else{x.fillStyle=col;x.fillRect(px-r,py-r,2*r,2*r)}x.restore()};
+  const inR=p=>p[0]>=-15;PAN.hs=inR(sun)?[X(sun[1]),Y(sun[0])]:null;PAN.hm=null;
+  if(inR(sun)){x.shadowColor="#ffd34d";x.shadowBlur=14;disc(X(sun[1]),Y(sun[0]),9,SI,"#ffd34d");x.shadowBlur=0;txt("Soleil",X(sun[1])+13,PY(X(sun[1]),Y(sun[0])),"#ffe9a8")}
+  const me=moonEq(t),mo=altaz(me.ra,me.dec,t);PAN.hm=inR(mo)?[X(mo[1]),Y(mo[0])]:null;if(inR(mo)){disc(X(mo[1]),Y(mo[0]),9,MI,"#d8d4c4");x.strokeStyle="rgba(255,255,255,.4)";x.beginPath();x.arc(X(mo[1]),Y(mo[0]),9,0,7);x.stroke();txt("Lune",X(mo[1])+13,PY(X(mo[1]),Y(mo[0])),"#fff")}
   for(const k of [0,1,3,4,5,6,7]){const gp=geo(k,t),p=altaz(gp.ra,gp.dec,t);if(!inR(p))continue;const col=PCOL[PL[k][0]],r=Math.max(2.5,Math.min(9,5-.6*gp.mag)),px=X(p[1]),py=Y(p[0]);
-    if(p[0]<0){x.strokeStyle=col;x.lineWidth=1.5;x.beginPath();x.arc(px,py,r,0,7);x.stroke()}else{x.shadowColor=col;x.shadowBlur=8;x.fillStyle=col;x.beginPath();x.arc(px,py,r,0,7);x.fill();x.shadowBlur=0}
+    if(p[0]<0){x.strokeStyle=col;x.lineWidth=1.5;x.beginPath();x.arc(px,py,r,0,7);x.stroke()}else if(PL[k][0]==="Mars"){disc(px,py,Math.max(r,5),MR,col)}else{x.shadowColor=col;x.shadowBlur=8;x.fillStyle=col;x.beginPath();x.arc(px,py,r,0,7);x.fill();x.shadowBlur=0}
     txt(PL[k][0],px+r+4,PY(px,py),p[0]<0?"rgba(146,160,186,.9)":"#fff")}
   $("ptime").textContent=hm(t)+" · Soleil à "+Math.round(sun[0])+"°";
 }
@@ -154,6 +161,7 @@ let panLast=0;function panLoop(now){if(!PAN.play)return;const dt=Math.min(.1,(no
 function nextPhase(ms,a){const w=t=>((moonEq(t).E-a+540)%360)-180;let t0=ms,w0=w(t0);
   for(let i=1;i<=130;i++){const t1=ms+i*.25*864e5,w1=w(t1);if(w0<0&&w1>=0&&w1-w0<90){let lo=t0,hi=t1;for(let k=0;k<26;k++){const m=(lo+hi)/2;w(m)<0?lo=m:hi=m}return hi}t0=t1;w0=w1}return null}
 const MI=new Image();MI.onload=()=>{try{renderAll()}catch(e){}};MI.src="moon.jpg";
+const SI=new Image(),MR=new Image();SI.onload=MR.onload=()=>{try{drawPan()}catch(e){}};SI.src="sun.png";MR.src="mars.png";
 function drawMini(E){const c=$("mcv");if(!c||!c.getContext)return;const x=c.getContext("2d"),R=50,cs=Co(E);x.clearRect(0,0,110,110);x.save();x.translate(55,55);x.fillStyle="#e9e5d3";x.beginPath();x.arc(0,0,R,0,7);x.fill();x.save();x.beginPath();x.arc(0,0,R,0,7);x.clip();if(MI.complete&&MI.naturalWidth)x.drawImage(MI,-R,-R,2*R,2*R);x.save();x.scale(E<180?1:-1,1);x.beginPath();x.arc(0,0,R+1,0,7);x.moveTo(0,-R);x.arc(0,0,R,-Math.PI/2,Math.PI/2,false);for(let i=0;i<=40;i++){const u=Math.PI*(1-i/40);x.lineTo(R*cs*Math.sin(u),-R*Math.cos(u))}x.closePath();x.fillStyle="rgba(12,18,34,.93)";x.fill("evenodd");x.restore();x.restore();x.restore()}
 // Calcul d’une date
 const N=720,ST=18e4;
@@ -177,7 +185,7 @@ function renderAll0(){
   const tw={};for(const[th,n] of [[-6,"civil"],[-12,"nautique"],[-18,"astro"]]){const c=cross(sunA,th,t0),dn=c.find(x=>x[1]==="down"&&set&&x[0]>set[0]-6e4),up=dn&&c.find(x=>x[1]==="up"&&x[0]>dn[0]);tw[n]=[dn&&dn[0],up&&up[0]]}
   h+=row("Crépuscule civil (fin)",tw.civil[0]?hm(tw.civil[0]):"—")+row("Crépuscule nautique (fin)",tw.nautique[0]?hm(tw.nautique[0]):"—");
   h+=row("Nuit astronomique",tw.astro[0]?hm(tw.astro[0])+" → "+(tw.astro[1]?hm(tw.astro[1]):"—"):"pas de nuit noire")+row("Aube nautique",tw.nautique[1]?hm(tw.nautique[1]):"—");
-  $("k-sun").innerHTML=h;
+  $("k-sun").innerHTML=h+'<p class="note go">Touchez pour voir l’activité solaire →</p>';
   // Lune
   const today=hkey(Date.now()).slice(0,10)===ds,tr=today?Date.now():t0+21*36e5,me=moonEq(tr),k=(1-Co(me.E))/2,nl=today?"cette nuit":"la nuit du "+new Date(t0).toLocaleDateString("fr-FR",{timeZone:TZ,day:"numeric",month:"long"});
   const mc=cross(moonA,.125,t0).filter(c=>c[0]<t24),mr=mc.filter(c=>c[1]==="up").map(c=>hm(c[0])).join(", ")||"pas de lever",ms=mc.filter(c=>c[1]==="down").map(c=>hm(c[0])).join(", ")||"pas de coucher";
@@ -186,7 +194,7 @@ function renderAll0(){
   for(const[a,n] of pn)if(Math.abs(((E-a+540)%360)-180)<6)nm=n;
   h="<h2>🌙 Lune</h2><canvas id=\"mcv\" width=\"110\" height=\"110\" style=\"float:right;margin:0 0 6px 10px\" role=\"img\" aria-label=\"Phase actuelle de la Lune\"></canvas>"+row("Lever",mr)+row("Coucher",ms)+row("Phase",nm)+row("Éclairée",Math.round(k*100)+" %")+row("Âge",f1(E/360*29.530589)+" jours")+row("Distance",Math.round(me.dist).toLocaleString("fr-FR")+" km");
   for(const[a,n] of pn){const t=nextPhase(tr,a);if(t)h+=row(n,new Date(t).toLocaleString("fr-FR",{timeZone:TZ,weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}))}
-  $("k-moon").innerHTML=h;drawMini(E);
+  $("k-moon").innerHTML=h+'<p class="note go">Touchez pour voir les phases de la Lune →</p>';drawMini(E);
   // Nuit noire
   const dark=clip(ivs(t0,i=>sunA[i]<-18&&moonA[i]<0)),dtot=dark.reduce((s,v)=>s+(v[1]-v[0])/6e4,0);
   const astroN=clip(ivs(t0,i=>sunA[i]<-18)).reduce((s,v)=>s+(v[1]-v[0])/6e4,0);
@@ -263,7 +271,7 @@ function renderAll0(){
 async function loadWeather(){
   try{
     const ac=new AbortController(),to=setTimeout(()=>ac.abort(),9000);
-    const u="https://api.open-meteo.com/v1/forecast?latitude="+LAT+"&longitude="+LON+"&hourly=temperature_2m,relative_humidity_2m,dew_point_2m,cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high,visibility,wind_speed_10m,precipitation_probability,shortwave_radiation,uv_index&current=temperature_2m,dew_point_2m,cloud_cover,wind_speed_10m,pressure_msl&timezone=Europe%2FParis&forecast_days=8&wind_speed_unit=kmh";
+    const u="https://api.open-meteo.com/v1/forecast?latitude="+LAT+"&longitude="+LON+"&hourly=temperature_2m,relative_humidity_2m,dew_point_2m,cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high,visibility,wind_speed_10m,precipitation_probability,shortwave_radiation,uv_index&current=temperature_2m,dew_point_2m,cloud_cover,wind_speed_10m,pressure_msl&timezone="+encodeURIComponent(TZ)+"&forecast_days=8&wind_speed_unit=kmh";
     const r=await fetch(u,{signal:ac.signal});clearTimeout(to);const j=await r.json(),idx={};j.hourly.time.forEach((t,i)=>idx[t]=i);W={h:j.hourly,idx,cur:j.current};
   }catch(e){W=null}
   try{const r=await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"),j=await r.json(),v=parseFloat(j[j.length-1][1]);if(!isNaN(v))KP=Math.round(v*10)/10}catch(e){KP=null}
@@ -275,6 +283,35 @@ function markDays(){document.querySelectorAll("button[data-d]").forEach(b=>b.set
 document.querySelectorAll("button[data-d]").forEach(b=>b.onclick=()=>{$("dt").value=dayStr(+b.dataset.d);markDays();renderAll()});
 $("dt").value=todayStr();$("dt").onchange=()=>{markDays();renderAll()};markDays();
 window.onerror=(m)=>{const b=$("err");b.hidden=false;b.textContent="Erreur : "+m};
+const PRE=[["Chemillé",47.2167,-.7333,"Europe/Paris"],["Paris",48.8566,2.3522,"Europe/Paris"],["Lyon",45.764,4.8357,"Europe/Paris"],["Marseille",43.2965,5.3698,"Europe/Paris"],["Toulouse",43.6047,1.4442,"Europe/Paris"],["Bordeaux",44.8378,-.5792,"Europe/Paris"],["Lille",50.6292,3.0573,"Europe/Paris"],["Strasbourg",48.5734,7.7521,"Europe/Paris"],["Nantes",47.2184,-1.5536,"Europe/Paris"],["Rennes",48.1173,-1.6778,"Europe/Paris"],["Brest",48.3904,-4.4861,"Europe/Paris"],["Nice",43.7102,7.262,"Europe/Paris"],["Ajaccio",41.9192,8.7386,"Europe/Paris"],["Londres",51.5074,-.1278,"Europe/London"],["Madrid",40.4168,-3.7038,"Europe/Madrid"],["New York",40.7128,-74.006,"America/New_York"],["Tokyo",35.6762,139.6503,"Asia/Tokyo"],["Sydney",-33.8688,151.2093,"Australia/Sydney"],["Papeete",-17.5516,-149.5585,"Pacific/Tahiti"],["Le Cap",-33.9249,18.4241,"Africa/Johannesburg"]];
+const fLat=v=>Math.abs(v).toFixed(2).replace(".",",")+"° "+(v>=0?"N":"S"),fLon=v=>Math.abs(v).toFixed(2).replace(".",",")+"° "+(v>=0?"E":"O");
+function setPlace(lat,lon,name,tzn){LAT=lat;LON=lon;PLACE=name;if(tzn){TZ=tzn;tzf=mkTzf(TZ)}W=null;
+  document.querySelectorAll(".place").forEach(e=>e.textContent=name);document.title="Ciel de "+name;
+  $("psub").textContent=name+" · "+fLat(lat)+", "+fLon(lon)+" · fuseau horaire "+TZ.replace(/_/g," ");
+  $("dt").value=todayStr();PAN.ds="";markDays();renderAll();loadWeather()}
+async function tzFor(lat,lon){try{const r=await fetch("https://api.open-meteo.com/v1/forecast?latitude="+lat+"&longitude="+lon+"&current=temperature_2m&timezone=auto"),j=await r.json();if(j.timezone)return j.timezone}catch(e){}
+  const n=Math.round(lon/15);return n===0?"Etc/GMT":"Etc/GMT"+(n>0?"-":"+")+Math.abs(n)}
+$("orig").innerHTML='<option value="-1">Choisir un lieu…</option>'+PRE.map((p,i)=>`<option value="${i}">${p[0]==="Chemillé"?"Chemillé-en-Anjou":p[0]}</option>`).join("");$("orig").value="0";
+$("orig").onchange=e=>{const i=+e.target.value;if(i<0)return;const p=PRE[i];$("omsg").textContent="";$("ores").innerHTML="";setPlace(p[1],p[2],p[0],p[3])};
+let RES=[];
+async function searchPlace(){const q=$("oq").value.trim();if(!q)return;$("omsg").textContent="Recherche…";$("ores").innerHTML="";
+  try{const r=await fetch("https://geocoding-api.open-meteo.com/v1/search?name="+encodeURIComponent(q)+"&count=5&language=fr&format=json"),j=await r.json();RES=j.results||[];
+    $("omsg").textContent=RES.length?"Choisissez le lieu :":"Aucun lieu trouvé.";
+    $("ores").innerHTML=RES.map((x,i)=>`<button data-i="${i}">${x.name}${x.admin1?" ("+x.admin1+")":""}${x.country?", "+x.country:""}</button>`).join("")}
+  catch(e){$("omsg").textContent="Recherche indisponible : elle demande une connexion Internet."}}
+$("osearch").onclick=searchPlace;$("oq").addEventListener("keydown",e=>{if(e.key==="Enter")searchPlace()});
+$("ores").addEventListener("click",e=>{const b=e.target.closest("button[data-i]");if(!b)return;const x=RES[+b.dataset.i];$("orig").value="-1";$("omsg").textContent="Lieu : "+x.name+".";$("ores").innerHTML="";setPlace(x.latitude,x.longitude,x.name,x.timezone)});
+async function gpsGo(){const n=($("gps").value.match(/-?\d+(?:[.,]\d+)?/g)||[]).map(v=>parseFloat(v.replace(",",".")));
+  if(n.length<2||Math.abs(n[0])>90||Math.abs(n[1])>180){$("omsg").textContent="Coordonnées non reconnues. Exemple : 47,2167 ; -0,7333 (latitude puis longitude, en degrés décimaux).";return}
+  $("omsg").textContent="Recherche du fuseau horaire…";const tzn=await tzFor(n[0],n[1]);$("orig").value="-1";$("ores").innerHTML="";$("omsg").textContent="Lieu : "+fLat(n[0])+", "+fLon(n[1])+".";
+  setPlace(n[0],n[1],n[0].toFixed(3).replace(".",",")+" ; "+n[1].toFixed(3).replace(".",","),tzn)}
+$("gpsgo").onclick=gpsGo;$("gps").addEventListener("keydown",e=>{if(e.key==="Enter")gpsGo()});
+$("geo").onclick=()=>{if(!navigator.geolocation){$("omsg").textContent="Position indisponible sur cet appareil.";return}$("omsg").textContent="Recherche de votre position…";
+  navigator.geolocation.getCurrentPosition(p=>{$("orig").value="-1";$("ores").innerHTML="";$("omsg").textContent="Lieu : votre position.";const z=Intl.DateTimeFormat().resolvedOptions().timeZone;setPlace(p.coords.latitude,p.coords.longitude,"Ma position",z)},()=>{$("omsg").textContent="Position indisponible (autorisation refusée ou page non sécurisée)."},{timeout:10000})};
+// Liens du Soleil et de la Lune
+const go=(id,url)=>{const el=$(id);el.addEventListener("click",()=>{location.href=url});el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();location.href=url}})};
+go("k-sun","activite-solaire.html");go("k-moon","phases-lune-chemille.html");
+$("pc").addEventListener("click",e=>{const r=e.target.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,near=h=>h&&Math.hypot(h[0]-x,h[1]-y)<18;if(near(PAN.hs))location.href="activite-solaire.html";else if(near(PAN.hm))location.href="phases-lune-chemille.html"});
 $("pslide").oninput=e=>{PAN.t=+e.target.value;drawPan()};
 $("pplay").onclick=e=>{PAN.play=!PAN.play;e.target.setAttribute("aria-pressed",PAN.play);e.target.textContent=PAN.play?"⏸ Pause":"▶ Simuler la nuit";if(PAN.play){panLast=performance.now();requestAnimationFrame(panLoop)}};
 addEventListener("resize",()=>{const c=$("pc");if(c)c._w=0;drawPan()});
